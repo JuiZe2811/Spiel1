@@ -72,7 +72,7 @@ export class Player {
     if (!Number.isFinite(this.pos.x) || !Number.isFinite(this.pos.z)) { this.pos.x = g.world.start.x; this.pos.z = g.world.start.z; }
     if (!Number.isFinite(this.yaw)) this.yaw = 0;
     if (!Number.isFinite(this.pitch)) this.pitch = 0;
-    // Ducken / Sprinten
+    // Sprinten (Ducken gibt es seit v1.2.0 nicht mehr)
     this.crouching = input.crouch;
     const mx = input.moveX, my = input.moveY;
     const mag = Math.min(1, Math.hypot(mx, my));

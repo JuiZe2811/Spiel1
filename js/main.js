@@ -634,7 +634,7 @@ class Game {
     this.huntPing -= dt;
     if (this.huntPing <= 0) {
       this.huntPing = 4;
-      // Er kennt nur deine ungefähre Position: Ducken, Licht aus und Türen schließen helfen.
+      // Er kennt nur deine ungefähre Position: Licht aus, leise gehen und Türen schließen helfen.
       if (!g.chasing && g.state !== 'repel') { g.setState('investigate'); g.goTo(pl.x + rand(-4, 4), pl.z + rand(-4, 4)); }
     }
     if (this.huntT <= 0) {
