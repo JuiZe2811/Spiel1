@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="5 Schlüssel">
+<meta name="theme-color" content="#050505">
+<meta name="description" content="3D-Survival-Horror im Browser: Finde fünf Schlüssel und entkomme dem Geist.">
+<title>Die fünf Schlüssel</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!--GAME-START-->
+<canvas id="game" aria-label="3D-Spielansicht"></canvas>
+<div id="fx-grain" class="fx"></div>
+<div id="fx-vignette" class="fx"></div>
+<div id="fx-threat" class="fx"></div>
+<div id="fx-flash" class="fx"></div>
+<div id="scare-face" class="fx"><img id="scare-img" alt=""></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M11 12h11M18 12v4M21 12v3" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></symbol>
+  <symbol id="i-light" viewBox="0 0 24 24"><path d="M4 9h7l6-4v14l-6-4H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19.5 8.5l2-1.5M20 12h2.5M19.5 15.5l2 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 24 24"><path d="M12 2v20M6 8h12" stroke="currentColor" stroke-width="3" stroke-linecap="square" fill="none"/></symbol>
+  <symbol id="i-run" viewBox="0 0 24 24"><circle cx="15" cy="4" r="2" fill="currentColor"/><path d="M8 21l3-6 3 2v5M5 12l3-4h5l3 4 3 1M11 15l1-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-crouch" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" fill="currentColor"/><path d="M8 21v-5l4-3 3 3-2 5M12 13l-1-5h3l3 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5a1.5 1.5 0 013 0v6M11 11V3.5a1.5 1.5 0 013 0V11M14 11V5a1.5 1.5 0 013 0v8c0 4-2.5 7-6 7s-5-2-6.5-5L3 11.5a1.4 1.4 0 012.3-1.5L8 13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div id="hud" hidden>
+  <button id="hud-pause" type="button" aria-label="Pause und Menü"><span></span><span></span></button>
+  <div id="hud-keys" aria-live="polite">
+    <div class="pips"><svg class="pip"><use href="#i-key"/></svg><svg class="pip"><use href="#i-key"/></svg><svg class="pip"><use href="#i-key"/></svg><svg class="pip"><use href="#i-key"/></svg><svg class="pip"><use href="#i-key"/></svg></div>
+    <span id="hud-key-count">0/5</span>
+  </div>
+  <div id="hud-objective"></div>
+  <div id="hud-msg" role="status"></div>
+  <div id="crosshair"></div>
+  <div id="hud-prompt"></div>
+  <div id="hud-stamina"><i></i></div>
+  <div id="hud-cross" class="desk-only"><svg><use href="#i-cross"/></svg><span>Q</span><b id="hud-cross-txt">BEREIT</b></div>
+  <div id="hud-hints" class="desk-only">WASD gehen · Maus umsehen · Shift rennen · C/Strg ducken · E interagieren · F Licht · Q Kruzifix · Esc Pause</div>
+  <div id="hud-lock" hidden>Klicke ins Bild, um dich mit der Maus umzusehen</div>
+  <div id="hud-fps" hidden></div>
+</div>
+
+<div id="touch" hidden>
+  <div id="joy-zone"></div>
+  <div id="look-zone"></div>
+  <div id="joy-base"><div id="joy-knob"></div></div>
+  <button type="button" class="tbtn tbtn-wide" data-act="interact" id="t-interact" hidden>INTERAGIEREN</button>
+  <div class="tbtn-grid">
+    <button type="button" class="tbtn" data-act="light" id="t-light"><svg><use href="#i-light"/></svg><span>Licht</span></button>
+    <button type="button" class="tbtn tbtn-cross" data-act="cross" id="t-cross"><svg><use href="#i-cross"/></svg><span>Kruzifix</span><b class="cd"></b></button>
+    <button type="button" class="tbtn" data-act="crouch" id="t-crouch"><svg><use href="#i-crouch"/></svg><span>Ducken</span></button>
+    <button type="button" class="tbtn" data-act="sprint" id="t-sprint"><svg><use href="#i-run"/></svg><span>Sprint</span></button>
+  </div>
+</div>
+
+<div id="fx-fade" class="fx"></div>
+
+<!-- Hauptmenü -->
+<section id="screen-menu" class="screen screen-menu" hidden>
+  <div class="menu-inner">
+    <header class="title-block">
+      <p class="eyebrow">Ein Spiel über fünf Schlösser und eine Tür</p>
+      <h1>Die fünf Schlüssel</h1>
+      <p class="tagline">„Du bist nicht allein.“</p>
+    </header>
+    <nav class="menu-list" aria-label="Hauptmenü">
+      <button type="button" id="btn-start" class="mbtn primary">SPIEL STARTEN</button>
+      <button type="button" id="btn-continue" class="mbtn" hidden>WEITERSPIELEN <small>gespeicherter Stand</small></button>
+      <button type="button" id="btn-face" class="mbtn with-thumb"><img class="face-thumb" alt=""><span>GEISTERGESICHT HOCHLADEN</span></button>
+      <button type="button" id="btn-settings" class="mbtn">EINSTELLUNGEN</button>
+      <button type="button" id="btn-controls" class="mbtn">STEUERUNG</button>
+      <button type="button" id="btn-fullscreen" class="mbtn" hidden>VOLLBILDMODUS</button>
+    </nav>
+    <p id="ios-hint" class="fine" hidden>iPhone-Tipp: Safari erlaubt kein echtes Vollbild. Über <em>Teilen → Zum Home-Bildschirm</em> startet das Spiel ohne Browserleisten.</p>
+    <p class="fine">Kopfhörer empfohlen. Enthält plötzliche Schreckeffekte und laute Geräusche.</p>
+  </div>
+</section>
+
+<!-- Pause -->
+<section id="screen-pause" class="screen" hidden>
+  <div class="panel narrow">
+    <h2>Pause</h2>
+    <p id="pause-note" class="note" hidden>Das Spiel wurde automatisch angehalten. Der Geist wartet, bis du weiterspielst.</p>
+    <div class="menu-list">
+      <button type="button" id="btn-resume" class="mbtn primary">WEITERSPIELEN</button>
+      <button type="button" id="btn-p-settings" class="mbtn">EINSTELLUNGEN</button>
+      <button type="button" id="btn-p-controls" class="mbtn">STEUERUNG</button>
+      <button type="button" id="btn-p-menu" class="mbtn">HAUPTMENÜ <small>Fortschritt bleibt gespeichert</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- Einstellungen -->
+<section id="screen-settings" class="screen" hidden>
+  <div class="panel">
+    <h2>Einstellungen</h2>
+    <div class="field">
+      <span class="label" id="lbl-q">Grafikqualität</span>
+      <div class="seg" id="set-quality" role="group" aria-labelledby="lbl-q">
+        <button type="button" data-q="auto">Auto</button><button type="button" data-q="low">Niedrig</button><button type="button" data-q="medium">Mittel</button><button type="button" data-q="high">Hoch</button>
+      </div>
+      <span class="hint" id="set-quality-note"></span>
+    </div>
+    <label class="field" for="set-volume"><span class="label">Lautstärke <output id="set-volume-v"></output></span>
+      <input type="range" id="set-volume" min="0" max="1" step="0.05"></label>
+    <label class="field" for="set-sens"><span class="label">Kamera-Empfindlichkeit <output id="set-sens-v"></output></span>
+      <input type="range" id="set-sens" min="0.3" max="2.5" step="0.1"></label>
+    <label class="check"><input type="checkbox" id="set-reduce"><span>Intensive Schreckeffekte reduzieren</span></label>
+    <label class="check"><input type="checkbox" id="set-invert"><span>Vertikale Kamera umkehren</span></label>
+    <label class="check"><input type="checkbox" id="set-fs"><span>Auf Smartphones beim Start Vollbild versuchen</span></label>
+    <label class="check"><input type="checkbox" id="set-fps"><span>Bildrate anzeigen</span></label>
+    <button type="button" class="mbtn btn-back">ZURÜCK</button>
+  </div>
+</section>
+
+<!-- Steuerung -->
+<section id="screen-controls" class="screen" hidden>
+  <div class="panel wide">
+    <h2>Steuerung</h2>
+    <div class="cols">
+      <div>
+        <h3>Smartphone &amp; Tablet</h3>
+        <dl class="ctl">
+          <dt>Linker Daumen</dt><dd>Virtueller Joystick: laufen</dd>
+          <dt>Rechte Hälfte wischen</dt><dd>Umsehen</dd>
+          <dt>Licht</dt><dd>Taschenlampe an/aus</dd>
+          <dt>Kruzifix</dt><dd>4 s Schutz, danach 20 s Abklingzeit</dd>
+          <dt>Sprint</dt><dd>Umschalten, kein Festhalten nötig</dd>
+          <dt>Ducken</dt><dd>Umschalten: leiser und schwerer zu sehen</dd>
+          <dt>Interagieren</dt><dd>Erscheint bei Türen und Schlüsseln</dd>
+        </dl>
+      </div>
+      <div>
+        <h3>PC</h3>
+        <dl class="ctl">
+          <dt>W A S D</dt><dd>Bewegen</dd>
+          <dt>Maus</dt><dd>Umsehen (ins Bild klicken)</dd>
+          <dt>Shift</dt><dd>Rennen</dd>
+          <dt>Strg oder C</dt><dd>Ducken (Strg+W schließt im Browser den Tab — C ist sicherer)</dd>
+          <dt>E</dt><dd>Interagieren</dd>
+          <dt>F</dt><dd>Taschenlampe</dd>
+          <dt>Q</dt><dd>Kruzifix</dd>
+          <dt>Esc</dt><dd>Pause</dd>
+        </dl>
+      </div>
+    </div>
+    <p class="note">Rennen und Türen sind laut. Der Geist hört Schritte, sieht deine Taschenlampe und sucht dort, wo er dich zuletzt gesehen hat. Hinter geschlossenen Türen bist du für ihn unsichtbar.</p>
+    <button type="button" class="mbtn btn-back">ZURÜCK</button>
+  </div>
+</section>
+
+<!-- Gesicht hochladen -->
+<section id="screen-face" class="screen" hidden>
+  <div class="panel wide">
+    <h2>Geistergesicht</h2>
+    <div class="face-layout">
+      <canvas id="face-canvas" width="480" height="480" aria-label="Bildausschnitt verschieben"></canvas>
+      <div class="face-side">
+        <label class="mbtn primary file-btn" for="face-file">FOTO AUSWÄHLEN
+          <input type="file" id="face-file" accept="image/jpeg,image/png,image/webp,image/*">
+        </label>
+        <label class="field" for="face-zoom"><span class="label">Zoom</span>
+          <input type="range" id="face-zoom" min="1" max="4" step="0.01" value="1"></label>
+        <p id="face-msg" class="note">JPG, PNG oder WEBP. Das Foto wird nur in deinem Browser verarbeitet und nirgendwohin hochgeladen.</p>
+        <div class="face-current"><img class="face-thumb big" alt="Aktuelles Geistergesicht"><span id="face-status"></span></div>
+        <button type="button" id="btn-face-apply" class="mbtn" disabled>ÜBERNEHMEN</button>
+        <button type="button" id="btn-face-default" class="mbtn">STANDARDGESICHT</button>
+        <button type="button" class="mbtn btn-back">ZURÜCK</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Game Over -->
+<section id="screen-over" class="screen screen-end" hidden>
+  <div class="panel narrow">
+    <h2 class="danger">Er hat dich gefunden.</h2>
+    <p id="over-stats" class="note"></p>
+    <div class="menu-list">
+      <button type="button" id="btn-retry" class="mbtn primary">NOCHMAL</button>
+      <button type="button" id="btn-over-menu" class="mbtn">HAUPTMENÜ</button>
+    </div>
+  </div>
+</section>
+
+<!-- Sieg -->
+<section id="screen-win" class="screen screen-end" hidden>
+  <div class="panel narrow">
+    <h2>Du bist entkommen.</h2>
+    <p id="win-stats" class="note"></p>
+    <p class="note">Die Tür fällt hinter dir ins Schloss. Drinnen bleibt etwas zurück und wartet.</p>
+    <div class="menu-list">
+      <button type="button" id="btn-win-retry" class="mbtn primary">NOCHMAL</button>
+      <button type="button" id="btn-win-menu" class="mbtn">HAUPTMENÜ</button>
+    </div>
+  </div>
+</section>
+
+<div id="rotate" hidden>
+  <div class="rot-icon"></div>
+  <p>Bitte drehe dein Smartphone ins Querformat.</p>
+</div>
+
+<div id="loading"><p>Das Gebäude wird aufgeschlossen …</p></div>
+<div id="no-webgl" hidden><p id="no-webgl-msg">Dein Browser unterstützt kein WebGL. Bitte aktiviere die Hardwarebeschleunigung oder nutze einen aktuellen Browser.</p></div>
+<!--GAME-END-->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
