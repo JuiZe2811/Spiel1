@@ -43,11 +43,22 @@ export class AudioEngine {
     const c = this.ctx;
     this.master = c.createGain(); this.master.gain.value = this.volume;
     const comp = c.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4;
-    this.master.connect(comp); comp.connect(c.destination);
-    this.sfx = c.createGain(); this.sfx.connect(this.master);
+    comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25;
+    const limiter = c.createDynamicsCompressor();
+    limiter.threshold.value = -2; limiter.ratio.value = 20; limiter.attack.value = 0.001; limiter.release.value = 0.1;
+    this.master.connect(comp).connect(limiter).connect(c.destination);
+    // Hall: synthetische Impulsantwort eines großen, leeren Gebäudes
+    this.verb = c.createConvolver();
+    this.verb.buffer = this._impulse(2.4, 3);
+    this.verbSend = c.createGain(); this.verbSend.gain.value = 0.45;
+    this.verbSend.connect(this.verb).connect(this.master);
+    this.sfx = c.createGain(); this.sfx.connect(this.master); this.sfx.connect(this.verbSend);
     this.music = c.createGain(); this.music.gain.value = 0; this.music.connect(this.master);
     this.amb = c.createGain(); this.amb.gain.value = 0; this.amb.connect(this.master);
+    const ambVerb = c.createGain(); ambVerb.gain.value = 0.5; this.amb.connect(ambVerb).connect(this.verbSend);
+    // Verzerrung für Schreie
+    this.distCurve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1, k = 60; this.distCurve[i] = ((3 + k) * x * 20 * Math.PI / 180) / (Math.PI + k * Math.abs(x)); }
 
     const len = c.sampleRate * 2;
     this.noise = c.createBuffer(1, len, c.sampleRate);
@@ -68,6 +79,21 @@ export class AudioEngine {
       const o = c.createOscillator(); o.frequency.value = f; const g = c.createGain(); g.gain.value = 0.05;
       o.connect(g).connect(this.amb); o.start();
     }
+    // Unheimliche, sich langsam verändernde Fläche (dissonante Sägezähne hinter einem wandernden Filter)
+    const pad = c.createGain(); pad.gain.value = 0.05;
+    const plp = c.createBiquadFilter(); plp.type = 'lowpass'; plp.frequency.value = 380; plp.Q.value = 6;
+    const plfo = c.createOscillator(); plfo.frequency.value = 0.035; const plg = c.createGain(); plg.gain.value = 260; plfo.connect(plg).connect(plp.frequency); plfo.start();
+    for (const f of [55, 58.3, 82.4, 87.3, 116.5]) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = rand(-12, 12);
+      o.connect(pad); o.start();
+    }
+    pad.connect(plp).connect(this.amb);
+    // Heulender Wind durch die Ritzen
+    const howl = this._loop(this.noise); const hbp = c.createBiquadFilter(); hbp.type = 'bandpass'; hbp.frequency.value = 700; hbp.Q.value = 12;
+    const hg = c.createGain(); hg.gain.value = 0.0;
+    const hlfo = c.createOscillator(); hlfo.frequency.value = 0.05; const hlg = c.createGain(); hlg.gain.value = 450; hlfo.connect(hlg).connect(hbp.frequency); hlfo.start();
+    const hlfo2 = c.createOscillator(); hlfo2.frequency.value = 0.09; const hlg2 = c.createGain(); hlg2.gain.value = 0.06; hlfo2.connect(hlg2).connect(hg.gain); hlfo2.start();
+    howl.connect(hbp).connect(hg).connect(this.amb);
 
     // Verfolgungsmusik: dissonante Streicherflächen mit Tremolo
     const strings = c.createGain(); strings.gain.value = 0.35;
@@ -156,11 +182,68 @@ export class AudioEngine {
     o.start(t); o.stop(t + dur + 0.05);
   }
 
+  _impulse(sec, decay) {
+    const c = this.ctx, len = Math.floor(c.sampleRate * sec), buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  }
+
+  // Menschlich klingender Schrei: mehrere Stimmen durch Vokal-Formanten, Rauheit, Verzerrung.
+  _scream({ base = 950, dur = 1.4, gain = 0.8, pos = null, when = 0, rough = 1 }) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime + when;
+    const out = c.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(gain, t + 0.035);
+    out.gain.setValueAtTime(gain, t + dur * 0.55);
+    out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const shaper = c.createWaveShaper(); shaper.curve = this.distCurve; shaper.oversample = '2x';
+    const formants = c.createGain();
+    for (const [f, q, g] of [[850, 6, 1], [1250, 7, 0.7], [2900, 9, 0.45], [3700, 10, 0.25]]) {
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * rand(0.92, 1.08); bp.Q.value = q;
+      const bg = c.createGain(); bg.gain.value = g; formants.connect(bp).connect(bg).connect(shaper);
+    }
+    const stop = t + dur + 0.05;
+    for (const det of [0, 9, -13]) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+      o.frequency.setValueAtTime(base * 0.5, t);
+      o.frequency.exponentialRampToValueAtTime(base * rand(1.0, 1.12), t + 0.09);
+      o.frequency.linearRampToValueAtTime(base * rand(0.85, 0.95), t + dur * 0.6);
+      o.frequency.exponentialRampToValueAtTime(base * 0.45, t + dur);
+      const vib = c.createOscillator(); vib.frequency.value = rand(6, 9); const vg = c.createGain(); vg.gain.value = base * 0.045;
+      const jit = c.createOscillator(); jit.type = 'square'; jit.frequency.value = rand(27, 41); const jg = c.createGain(); jg.gain.value = base * 0.02 * rough;
+      vib.connect(vg).connect(o.frequency); jit.connect(jg).connect(o.frequency);
+      const og = c.createGain(); og.gain.value = 0.35;
+      o.connect(og).connect(formants);
+      for (const n of [o, vib, jit]) { n.start(t); n.stop(stop); }
+    }
+    // Atem / Kratzen
+    const ns = c.createBufferSource(); ns.buffer = this.noise;
+    const nb = c.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = 2600; nb.Q.value = 0.7;
+    const ng = c.createGain(); ng.gain.value = 0.35;
+    ns.connect(nb).connect(ng).connect(shaper); ns.start(t, Math.random()); ns.stop(stop);
+    const post = c.createBiquadFilter(); post.type = 'lowpass'; post.frequency.value = 7000;
+    shaper.connect(post).connect(out).connect(this._dest(pos));
+  }
+
+  // Wuchtiger Schock-Treffer (Aufprall + kreischendes Metall)
+  _impact(k, when = 0) {
+    this._tone({ freq: 70, freqEnd: 28, dur: 1.1, gain: 1.0 * k, attack: 0.004, when });
+    this._noise({ dur: 0.35, type: 'lowpass', freq: 2500, freqEnd: 200, gain: 0.9 * k, attack: 0.002, when });
+    this._noise({ dur: 1.2, freq: 3200, freqEnd: 1800, q: 9, gain: 0.35 * k, attack: 0.005, when });
+    for (const f of [233, 247, 349, 370, 523, 554]) this._tone({ freq: f, freqEnd: f * 0.7, type: 'sawtooth', dur: 1.6, gain: 0.07 * k, attack: 0.005, when });
+  }
+
   // ---------- Effekte ----------
   footstep(zone, intensity) {
     const f = { c: 1700, l: 1500, o: 450, s: 900, k: 650 }[zone] || 900;
-    this._noise({ dur: 0.07 + intensity * 0.05, freq: f * rand(0.85, 1.15), q: 1.2, gain: 0.07 + intensity * 0.22 });
-    this._noise({ dur: 0.09, type: 'lowpass', freq: 220, gain: 0.08 + intensity * 0.18 });
+    this._noise({ dur: 0.06 + intensity * 0.04, freq: f * rand(0.85, 1.15), q: 1.4, gain: 0.08 + intensity * 0.22 });
+    this._noise({ dur: 0.1, type: 'lowpass', freq: 180, gain: 0.1 + intensity * 0.2 });
+    this._noise({ dur: 0.08, freq: f * 1.6, q: 2, gain: 0.03 + intensity * 0.08, when: 0.05 + rand(0, 0.02) });
+    if (zone === 'o' || zone === 'l') { if (Math.random() < 0.12) this._tone({ freq: rand(90, 140), freqEnd: rand(60, 80), type: 'sawtooth', dur: 0.35, gain: 0.04, attack: 0.05 }); }
     if (zone === 'k' && Math.random() < 0.4) this._noise({ dur: 0.15, type: 'highpass', freq: 3000, gain: 0.04 + intensity * 0.05, when: 0.02 });
   }
   ghostStep(pos) { this._noise({ dur: 0.08, freq: 600, q: 1, gain: 0.25, pos }); }
@@ -200,23 +283,30 @@ export class AudioEngine {
     }
   }
   moan(pos, gain = 0.4) {
-    const f = rand(120, 170);
-    this._tone({ freq: f, freqEnd: f * 0.6, type: 'triangle', dur: 2.2, gain: gain * this.scareScale, attack: 0.4, pos, vib: 8 });
-    this._tone({ freq: f * 1.5, freqEnd: f * 0.85, type: 'sine', dur: 2.0, gain: gain * 0.5 * this.scareScale, attack: 0.5, pos, vib: 10 });
+    const f = rand(110, 160);
+    this._tone({ freq: f, freqEnd: f * 0.55, type: 'sawtooth', dur: 2.4, gain: gain * 0.5 * this.scareScale, attack: 0.5, pos, vib: 9 });
+    this._tone({ freq: f * 1.5, freqEnd: f * 0.8, type: 'triangle', dur: 2.2, gain: gain * 0.6 * this.scareScale, attack: 0.6, pos, vib: 12 });
+    this._noise({ dur: 2.2, freq: 500, freqEnd: 300, q: 3, gain: gain * 0.4 * this.scareScale, attack: 0.6, pos });
   }
-  whoosh(pos) { this._noise({ dur: 0.6, freq: 400, freqEnd: 2500, q: 2, gain: 0.45 * this.scareScale, attack: 0.15, pos }); }
+  whoosh(pos) { this._noise({ dur: 0.6, freq: 400, freqEnd: 2500, q: 2, gain: 0.5 * this.scareScale, attack: 0.15, pos }); }
+  // Jumpscare: Aufprall + lauter Schrei
   stinger(strength = 1) {
     const k = strength * this.scareScale;
-    for (const f of [220, 233, 311, 330, 466, 494]) this._tone({ freq: f, freqEnd: f * 0.8, type: 'sawtooth', dur: 1.4, gain: 0.09 * k, attack: 0.01 });
-    this._noise({ dur: 0.9, type: 'highpass', freq: 1500, gain: 0.5 * k, attack: 0.005 });
-    this._tone({ freq: 60, freqEnd: 30, dur: 0.8, gain: 0.8 * k });
+    this._impact(k);
+    if (strength >= 0.6) this._scream({ base: rand(900, 1150), dur: rand(0.9, 1.3), gain: 0.85 * k });
+    else this._noise({ dur: 0.9, type: 'highpass', freq: 1500, gain: 0.45 * k, attack: 0.005 });
   }
+  // Todesschrei: lang, laut, mehrstimmig
   scream(strength = 1) {
     const k = strength * this.scareScale;
-    this._tone({ freq: 900, freqEnd: 520, type: 'sawtooth', dur: 1.3, gain: 0.25 * k, attack: 0.02, vib: 60 });
-    this._tone({ freq: 1340, freqEnd: 760, type: 'square', dur: 1.1, gain: 0.08 * k, attack: 0.02, vib: 80 });
-    this._noise({ dur: 1.3, freq: 2500, q: 0.8, gain: 0.6 * k });
-    this._tone({ freq: 55, freqEnd: 30, dur: 1.2, gain: 0.9 * k });
+    this._impact(k * 1.2);
+    this._scream({ base: 1100, dur: 2.0, gain: 1.0 * k });
+    this._scream({ base: 720, dur: 1.9, gain: 0.7 * k, when: 0.05, rough: 1.6 });
+    this._scream({ base: 1500, dur: 1.2, gain: 0.45 * k, when: 0.3 });
+  }
+  ghostShriek(pos) { this._scream({ base: rand(650, 800), dur: 1.3, gain: 0.75 * this.scareScale, pos, rough: 1.8 }); }
+  growl(pos) {
+    this._scream({ base: rand(110, 150), dur: rand(0.7, 1.1), gain: 0.5 * this.scareScale, pos, rough: 3 });
   }
   knock(pos) { for (let i = 0; i < 3; i++) this._noise({ dur: 0.08, type: 'lowpass', freq: 700, gain: 0.6, pos, when: i * 0.22 }); }
   scrape(pos) { this._noise({ dur: 0.7, freq: 600, freqEnd: 1400, q: 5, gain: 0.45, attack: 0.05, pos }); this._noise({ dur: 0.2, type: 'lowpass', freq: 400, gain: 0.6, pos, when: 0.65 }); }
@@ -258,9 +348,29 @@ export class AudioEngine {
     this._tone({ freq: 70, freqEnd: 40, dur: 0.2, gain: 0.8 * k, pos });
   }
   distantScream(pos) {
-    this._tone({ freq: 800, freqEnd: 420, type: 'sawtooth', dur: 1.6, gain: 0.35 * this.scareScale, attack: 0.08, pos, vib: 45 });
-    this._noise({ dur: 1.4, freq: 1800, q: 1, gain: 0.3 * this.scareScale, attack: 0.1, pos });
+    this._scream({ base: rand(850, 1050), dur: 1.9, gain: 0.7 * this.scareScale, pos });
   }
+  pipeGroan(pos) {
+    this._tone({ freq: rand(45, 70), freqEnd: rand(30, 45), type: 'sawtooth', dur: 2.5, gain: 0.12, attack: 0.6, pos, vib: 3 });
+    this._noise({ dur: 2.2, freq: rand(250, 500), freqEnd: rand(150, 250), q: 14, gain: 0.25, attack: 0.5, pos });
+  }
+  metalClank(pos) {
+    for (const f of [rand(400, 600), rand(900, 1300), rand(2100, 2600)]) this._tone({ freq: f, freqEnd: f * 0.98, type: 'triangle', dur: 1.4, gain: 0.08, attack: 0.002, pos });
+    this._noise({ dur: 0.08, type: 'highpass', freq: 2000, gain: 0.3, pos });
+  }
+  thunder() {
+    this._noise({ dur: 4, type: 'lowpass', freq: 220, freqEnd: 60, gain: 0.5, attack: 0.4, buffer: this.brown });
+    this._noise({ dur: 2.5, type: 'lowpass', freq: 500, freqEnd: 120, gain: 0.25, attack: 0.05, buffer: this.brown, when: 0.2 });
+  }
+  crying(pos) {
+    for (let i = 0; i < 4; i++) {
+      const f = rand(380, 460);
+      this._tone({ freq: f, freqEnd: f * 0.75, type: 'triangle', dur: 0.9, gain: 0.07, attack: 0.15, pos, when: i * 1.0, vib: 14 });
+      this._noise({ dur: 0.4, freq: 1500, q: 1, gain: 0.04, attack: 0.1, pos, when: i * 1.0 + 0.85 });
+    }
+  }
+  drip(pos) { this._tone({ freq: rand(1700, 2600), freqEnd: rand(700, 1000), dur: 0.09, gain: 0.12, pos }); }
+  tomHit(k) { this._tone({ freq: 95, freqEnd: 45, dur: 0.35, gain: 0.55 * k, attack: 0.003 }); this._noise({ dur: 0.08, type: 'lowpass', freq: 900, gain: 0.3 * k }); }
   stepsAt(points, interval) {
     points.forEach((p, i) => {
       this._noise({ dur: 0.08, freq: 900, gain: 0.35 + i * 0.06, pos: p, when: i * interval });
@@ -323,6 +433,7 @@ export class AudioEngine {
 
   setGhost(pos, intensity) {
     if (!this.ctx) return;
+    this.gpos = { x: pos.x, y: 1.6, z: pos.z }; this.gint = intensity;
     this._setPos(this.ghostPan, pos.x, 1.5, pos.z);
     this.ghostGain.gain.setTargetAtTime(intensity, this.ctx.currentTime, 0.2);
   }
@@ -342,14 +453,32 @@ export class AudioEngine {
       this.heartT -= dt;
       if (this.heartT <= 0) { this.heartbeat(clamp(this.threat, 0.3, 1)); this.heartT = 1.1 - this.threat * 0.55; }
     }
+    // Verfolgung: treibende Trommeln und Knurren des Geistes
+    if (this.threat > 0.9) {
+      this.pulseT -= dt;
+      if (this.pulseT <= 0) { this.pulseT = 0.42; this.beat = (this.beat || 0) + 1; this.tomHit(this.beat % 4 === 0 ? 1 : 0.6); }
+      this.growlT = (this.growlT ?? 2) - dt;
+      if (this.growlT <= 0 && this.gpos) { this.growlT = rand(2.2, 4); this.growl(this.gpos); }
+    }
+    // Geräuschkulisse
     this.ambT -= dt;
     if (this.ambT <= 0) {
-      this.ambT = rand(4, 11);
-      const p = { x: (this.lx || 0) + rand(-12, 12), y: 2.5, z: (this.lz || 0) + rand(-12, 12) };
-      const r = Math.random();
-      if (inKeller || r < 0.3) this._tone({ freq: rand(1800, 2600), freqEnd: 900, dur: 0.12, gain: 0.08, pos: p });
-      else if (r < 0.6) this._tone({ freq: rand(60, 90), type: 'sawtooth', dur: 1.2, gain: 0.05, attack: 0.3, pos: p });
-      else this._noise({ dur: 0.3, type: 'lowpass', freq: 500, gain: 0.15, pos: p });
+      this.ambT = rand(3, 8);
+      const p = { x: (this.lx || 0) + rand(-14, 14), y: rand(1, 3.5), z: (this.lz || 0) + rand(-14, 14) };
+      const pick = inKeller ? choiceW([['drip', 4], ['pipe', 3], ['clank', 2], ['creak', 1]]) : choiceW([['creak', 3], ['pipe', 2], ['clank', 1], ['thunder', 1], ['cry', 1], ['drip', 1], ['knock', 1]]);
+      if (pick === 'drip') { for (let i = 0; i < 3; i++) this._tone({ freq: rand(1700, 2600), freqEnd: 900, dur: 0.09, gain: 0.1, pos: p, when: i * rand(0.4, 0.9) }); }
+      else if (pick === 'pipe') this.pipeGroan(p);
+      else if (pick === 'clank') this.metalClank(p);
+      else if (pick === 'thunder') this.thunder();
+      else if (pick === 'cry') this.crying(p);
+      else if (pick === 'knock') this.knock(p);
+      else this.creakSlow(p);
     }
   }
+}
+
+function choiceW(list) {
+  let r = Math.random() * list.reduce((s, x) => s + x[1], 0);
+  for (const [v, w] of list) { r -= w; if (r <= 0) return v; }
+  return list[0][0];
 }

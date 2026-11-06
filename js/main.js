@@ -16,6 +16,8 @@ import { $, $$, store, rand, clamp, shuffle, angleDiff } from './util.js';
 
 const SAVE_KEY = 'f5s_save_v1';
 const TOTAL_KEYS = 5;
+const COMPASS_TIME = 3;
+const COMPASS_COOLDOWN = 30;
 
 class Game {
   constructor() {
@@ -56,11 +58,7 @@ class Game {
     this._buildKeys();
     this.flares = new Flares(this);
     this.ambient = new AmbientDirector(this, new GhostModel(gm, true));
-    // Leuchtsäule für den Schlüssel-Hinweis (durch Wände sichtbar)
-    this.hintBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.3, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
-    this.hintBeam.visible = false; this.hintBeam.renderOrder = 10;
-    this.scene.add(this.hintBeam);
+    this._buildCompass();
     this.hintT = 0; this.hintCd = 0; this.chimeT = 0;
 
     this.scale = q.startScale;
@@ -154,7 +152,7 @@ class Game {
       inner.add(r, s, t1, t2);
       inner.scale.setScalar(1.5);
       const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.tex.glow, color: 0xffcf6a, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-      glow.scale.set(1.3, 1.3, 1);
+      glow.scale.set(1.0, 1.0, 1);
       g.add(inner, glow);
       g.visible = false;
       this.scene.add(g);
@@ -203,7 +201,7 @@ class Game {
     this.flares.pickups.forEach((p) => { p.group.visible = false; });
     this.flares.clearActive();
     this.ambient.reset();
-    this.hintBeam.visible = false;
+    this.compass.visible = false; this.hintT = 0;
     this.player.reset(this.world.start.x, this.world.start.z + 1, 0);
     this.ghostModel.group.visible = true;
     this.ghostModel.group.position.set(this.world.start.x + 0.6, 0, this.world.start.z - 13);
@@ -263,7 +261,7 @@ class Game {
     this.ghostModel.group.visible = true;
     this.input.sprintToggle = false;
     this.ambient.reset();
-    this.hintT = 0; this.hintCd = 0; this.hintBeam.visible = false; this.ui.hint(false);
+    this.hintT = 0; this.hintCd = 0; this.compassUp = 0; this.compass.visible = false;
     this.ui.fade(false);
     this.ui.objective('Finde die fünf Schlüssel');
     this._endHunt(true);
@@ -333,7 +331,7 @@ class Game {
 
   onGhostSpotted() {
     if (this.state !== 'playing') return;
-    this.audio.stinger(0.6);
+    this.audio.stinger(0.5);
     this.audio.ghostShriek(this.ghost.pos);
     this.ui.message('Er hat dich gesehen. LAUF!', 2.5);
   }
@@ -589,29 +587,71 @@ class Game {
 
   _useHint() {
     if (this.hintT > 0) return;
-    if (this.hintCd > 0) { this.ui.message(`Der Hinweis lädt noch (${Math.ceil(this.hintCd)} s).`, 1.8); return; }
-    this.hintT = 8; this.hintCd = 30;
-    this.audio.hintPing();
-    const t = this._hintTarget();
-    this.ui.message(t.exit ? 'Der Ausgang liegt in dieser Richtung.' : 'Folge dem goldenen Licht zum nächsten Schlüssel.', 2.5);
+    if (this.hintCd > 0) { this.ui.message(`Der Kompass ist noch nicht bereit (${Math.ceil(this.hintCd)} s).`, 1.8); return; }
+    this.hintT = COMPASS_TIME; this.hintCd = COMPASS_COOLDOWN;
+    this.audio.click();
+  }
+
+  // Kompass in der Hand: Holz-/Messinggehäuse, Nadel zeigt zum nächsten Schlüssel (bzw. zum Ausgang).
+  _buildCompass() {
+    const g = new THREE.Group();
+    const brass = new THREE.MeshLambertMaterial({ color: 0xb08a3a, emissive: 0x2a1c05 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.078, 0.022, 28), brass);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.006, 6, 28), brass);
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.012;
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const x = c.getContext('2d');
+    x.fillStyle = '#d9cba3'; x.beginPath(); x.arc(128, 128, 126, 0, Math.PI * 2); x.fill();
+    const grd = x.createRadialGradient(128, 128, 40, 128, 128, 128); grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(60,40,10,0.45)');
+    x.fillStyle = grd; x.fill();
+    x.strokeStyle = '#3a2a14';
+    for (let i = 0; i < 72; i++) {
+      const a = i / 72 * Math.PI * 2, l = i % 9 === 0 ? 18 : 8;
+      x.lineWidth = i % 9 === 0 ? 3 : 1.2;
+      x.beginPath(); x.moveTo(128 + Math.sin(a) * 118, 128 - Math.cos(a) * 118); x.lineTo(128 + Math.sin(a) * (118 - l), 128 - Math.cos(a) * (118 - l)); x.stroke();
+    }
+    x.fillStyle = '#3a2a14'; x.font = '28px Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    // Statt Himmelsrichtungen: verblasste Symbole
+    ['✝', '☽', '✝', '☽'].forEach((t, i) => { const a = i * Math.PI / 2; x.fillText(t, 128 + Math.sin(a) * 76, 128 - Math.cos(a) * 76); });
+    x.strokeStyle = 'rgba(90,10,10,0.5)'; x.lineWidth = 2; x.beginPath(); x.arc(128, 128, 40, 0, Math.PI * 2); x.stroke();
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const face = new THREE.Mesh(new THREE.CircleGeometry(0.066, 32), new THREE.MeshBasicMaterial({ map: tex, color: 0xb9ae94 }));
+    face.rotation.x = -Math.PI / 2; face.position.y = 0.0115;
+    const needle = new THREE.Group(); needle.position.y = 0.015;
+    const shape = (pts) => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach((q) => sh.lineTo(q[0], q[1])); const geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2); return geo; };
+    needle.add(new THREE.Mesh(shape([[0, 0.058], [0.009, 0], [-0.009, 0]]), new THREE.MeshBasicMaterial({ color: 0xb01a12, side: THREE.DoubleSide })));
+    needle.add(new THREE.Mesh(shape([[0, -0.045], [0.009, 0], [-0.009, 0]]), new THREE.MeshBasicMaterial({ color: 0xe8e2d0, side: THREE.DoubleSide })));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), brass); cap.position.y = 0.017;
+    g.add(body, ring, face, needle, cap);
+    g.rotation.x = 1.05;
+    g.position.set(-0.02, -0.6, -0.36);
+    g.visible = false;
+    this.camera.add(g);
+    this.compass = g; this.needle = needle;
+    this.needleA = 0; this.needleV = 0; this.compassUp = 0;
   }
 
   _updateHint(dt) {
     const pl = this.player;
     const t = this._hintTarget();
-    if (this.hintT > 0) {
-      this.hintT -= dt;
+    const active = this.hintT > 0;
+    if (active) this.hintT -= dt; else this.hintCd = Math.max(0, this.hintCd - dt);
+    // Kompass heben/senken
+    this.compassUp += ((active ? 1 : 0) - this.compassUp) * Math.min(1, dt * 9);
+    this.compass.visible = this.compassUp > 0.02;
+    if (this.compass.visible) {
+      this.compass.position.y = -0.6 + this.compassUp * 0.45;
+      this.compass.rotation.z = Math.sin(performance.now() * 0.002) * 0.03;
+      // Nadel mit Feder-Dämpfung (pendelt sich ein)
       const targetYaw = Math.atan2(-(t.x - pl.pos.x), -(t.z - pl.pos.z));
-      const rel = angleDiff(pl.yaw, targetYaw);
-      this.ui.hint(true, -rel * 180 / Math.PI, t.d);
-      this.hintBeam.visible = true;
-      this.hintBeam.position.set(t.x, 3.5, t.z);
-      this.hintBeam.material.opacity = 0.18 + Math.sin(performance.now() * 0.006) * 0.08;
-      if (this.hintT <= 0) { this.ui.hint(false); this.hintBeam.visible = false; }
-    } else this.hintCd = Math.max(0, this.hintCd - dt);
-    // Schlüssel in der Nähe klingeln leise (hilft beim Suchen)
+      const want = this.needleA + angleDiff(this.needleA, angleDiff(pl.yaw, targetYaw));
+      this.needleV += ((want - this.needleA) * 60 - this.needleV * 7) * dt;
+      this.needleA += this.needleV * dt + (Math.random() - 0.5) * 0.01;
+      this.needle.rotation.y = this.needleA;
+    }
+    // Ein Schlüssel ganz in der Nähe klingelt leise
     this.chimeT -= dt;
-    if (!t.exit && t.d < 9 && this.chimeT <= 0) { this.chimeT = 1.6 + t.d * 0.15; this.audio.keyChime({ x: t.x, y: t.y + 0.3, z: t.z }); }
+    if (!t.exit && t.d < 5 && this.chimeT <= 0) { this.chimeT = 2.2; this.audio.keyChime({ x: t.x, y: t.y + 0.3, z: t.z }); }
   }
 
   // ---------- Jagdphasen: rote Lichter, er sucht gezielt in deiner Nähe ----------

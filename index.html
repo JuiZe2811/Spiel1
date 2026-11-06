@@ -52,7 +52,7 @@
     <div id="hud-flares" class="inv"><svg><use href="#i-flare"/></svg><span>G</span><b>0</b></div>
     <div id="hud-hintkey" class="inv"><svg><use href="#i-hint"/></svg><span>H</span><b>BEREIT</b></div>
   </div>
-  <div id="hud-hints" class="desk-only">WASD gehen · Maus umsehen · Shift rennen · E interagieren · F Licht · Q Kruzifix · G Bengalo · H Hinweis · Esc Pause</div>
+  <div id="hud-hints" class="desk-only">WASD gehen · Maus umsehen · Shift rennen · E interagieren · F Licht · Q Kruzifix · G Bengalo · H Kompass · Esc Pause</div>
   <div id="hud-lock" hidden>Klicke ins Bild, um dich mit der Maus umzusehen</div>
   <div id="hud-fps" hidden></div>
 </div>
@@ -67,7 +67,7 @@
     <button type="button" class="tbtn arc a1" data-act="light" id="t-light" aria-label="Taschenlampe"><svg><use href="#i-light"/></svg><span>Licht</span></button>
     <button type="button" class="tbtn arc a2 tbtn-cross has-ring" data-act="cross" id="t-cross" aria-label="Kruzifix"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="100"/></svg><svg><use href="#i-cross"/></svg><span>Kreuz</span><b class="cd"></b></button>
     <button type="button" class="tbtn arc a3" data-act="flare" id="t-flare" aria-label="Bengalo werfen"><svg><use href="#i-flare"/></svg><span>Bengalo</span><b class="badge">0</b></button>
-    <button type="button" class="tbtn arc a4 has-ring" data-act="hint" id="t-hint" aria-label="Hinweis zum nächsten Schlüssel"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="100"/></svg><svg><use href="#i-hint"/></svg><span>Hinweis</span></button>
+    <button type="button" class="tbtn arc a4 has-ring" data-act="hint" id="t-hint" aria-label="Kompass zum nächsten Schlüssel"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="100"/></svg><svg><use href="#i-hint"/></svg><span>Kompass</span></button>
   </div>
 </div>
 
@@ -92,7 +92,7 @@
     </nav>
     <p id="ios-hint" class="fine" hidden>iPhone-Tipp: Safari erlaubt kein echtes Vollbild. Über <em>Teilen → Zum Home-Bildschirm</em> startet das Spiel ohne Browserleisten.</p>
     <p class="fine">Kopfhörer empfohlen. Enthält plötzliche Schreckeffekte und laute Geräusche.</p>
-    <p class="credit"><span class="version">v1.2.0</span> · made by Julian</p>
+    <p class="credit"><span class="version">v1.3.0</span> · made by Julian</p>
   </div>
 </section>
 
@@ -151,7 +151,7 @@
           <dt>Sprint</dt><dd>Großer Knopf unten rechts, umschaltbar</dd>
           <dt>Kreuz</dt><dd>Kruzifix: 4 s Schutz, 20 s Abklingzeit</dd>
           <dt>Bengalo</dt><dd>Wirft einen roten Bengalo in Blickrichtung</dd>
-          <dt>Hinweis</dt><dd>Zeigt 8 s lang den Weg zum nächsten Schlüssel</dd>
+          <dt>Kompass</dt><dd>3 s in der Hand, Nadel zeigt zum nächsten Schlüssel (alle 30 s)</dd>
           <dt>Interagieren</dt><dd>Erscheint bei Türen, Schlüsseln und Bengalos</dd>
         </dl>
       </div>
@@ -165,7 +165,7 @@
           <dt>F</dt><dd>Taschenlampe</dd>
           <dt>Q</dt><dd>Kruzifix</dd>
           <dt>G</dt><dd>Bengalo werfen</dd>
-          <dt>H</dt><dd>Hinweis zum nächsten Schlüssel</dd>
+          <dt>H</dt><dd>Kompass (zeigt zum nächsten Schlüssel)</dd>
           <dt>Esc</dt><dd>Pause</dd>
         </dl>
       </div>
@@ -202,6 +202,14 @@
   <div class="panel wide">
     <h2>Patch Notes</h2>
     <article class="patch">
+      <h3>v1.3.0 <small>Neuer Sound &amp; Kompass</small></h3>
+      <ul>
+        <li><b>Laute Schreie:</b> Jumpscares und der Tod haben jetzt echte, verzerrte Schreie mit wuchtigem Aufprall.</li>
+        <li><b>Neue Geräuschkulisse:</b> Hall im ganzen Gebäude, heulender Wind, ächzende Rohre, Metallklirren, Donner, fernes Weinen, tropfendes Wasser im Keller, knarrende Dielen.</li>
+        <li><b>Verfolgung:</b> Treibende Trommeln, und der Geist knurrt hinter dir.</li>
+        <li><b>Kompass</b> statt Hinweis-Pfeil: Alle 30 Sekunden nimmst du ihn 3 Sekunden in die Hand, die Nadel zeigt zum nächsten Schlüssel. Keine Lichtsäule und keine Entfernungsanzeige mehr – die Suche ist wieder schwerer.</li>
+        <li>Schlüssel leuchten etwas schwächer und klingeln erst aus nächster Nähe.</li>
+      </ul>
       <h3>v1.2.0 <small>Bengalos &amp; mehr Grusel</small></h3>
       <ul>
         <li><b>Rote Bengalos:</b> 7 Stück liegen leuchtend im Gebäude. Einsammeln (max. 3) und werfen: Sie prallen ab und leuchten 30 Sekunden alles rot aus.</li>

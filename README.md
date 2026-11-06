@@ -1,6 +1,6 @@
 # Die fünf Schlüssel
 
-**Version 1.2.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+**Version 1.3.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
 
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
@@ -37,18 +37,18 @@ Alle Ressourcen (Three.js, Schriften, Texturen, Klänge) liegen im Repository od
 | Taschenlampe | Taste **Licht** | F |
 | Kruzifix | Taste **Kreuz** (Abklingzeit als Ring) | Q |
 | Bengalo werfen | Taste **Bengalo** (Zähler am Knopf) | G |
-| Schlüssel-Hinweis | Taste **Hinweis** | H |
+| Kompass | Taste **Kompass** | H |
 | Interagieren | Taste **INTERAGIEREN** / **AUFNEHMEN** erscheint bei Türen, Schlüsseln, Ausgang | E |
 | Pause | Pause-Knopf oben links | Esc |
 
 Die Oberfläche wird automatisch gewählt: Touch-Geräte (auch iPads, die sich als Mac ausgeben) bekommen die Touch-Steuerung, unabhängig von der Bildschirmgröße. Wechselt man das Eingabegerät (z. B. Tablet mit Maus), schaltet die Oberfläche um.
 
-Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Knopf in der Ecke, darum Licht, Kreuz, Bengalo und Hinweis. Die Drehempfindlichkeit ist getrennt für Touch und Maus einstellbar (Einstellungen oder direkt im Pausenmenü).
+Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Knopf in der Ecke, darum Licht, Kreuz, Bengalo und Kompass. Die Drehempfindlichkeit ist getrennt für Touch und Maus einstellbar (Einstellungen oder direkt im Pausenmenü).
 
 ## Spielmechanik
 
 - **Schlüssel:** Fünf Schlüssel werden bei jedem Spielstart zufällig auf fünf verschiedene Räume verteilt (auf Tischen, Kisten oder in Ecken). Sie leuchten golden, damit sie auch auf kleinen Displays erkennbar sind.
-- **Schlüssel-Hinweis:** Die Hinweis-Taste zeigt 8 Sekunden lang einen Pfeil mit Entfernung und eine goldene Lichtsäule (durch Wände sichtbar) zum nächsten Schlüssel, danach 30 Sekunden Abklingzeit. Schlüssel in der Nähe (unter 9 m) klingeln leise.
+- **Kompass:** Alle 30 Sekunden kannst du einen Kompass für 3 Sekunden in die Hand nehmen (Taste **Kompass** bzw. **H**). Seine Nadel zeigt zum nächsten Schlüssel, nach dem fünften Schlüssel zum Ausgang. Ein Schlüssel in unmittelbarer Nähe (unter 5 m) klingelt leise.
 - **Rote Bengalos:** 7 Stück liegen rot leuchtend im Gebäude. Man trägt bis zu 3, jeder kann einmal geworfen werden. Er fliegt in Blickrichtung, prallt von Wänden ab und leuchtet 30 Sekunden lang die Umgebung rot aus.
 - **Die Welt lebt:** Etwa alle 5–10 Sekunden verändert sich etwas: blutige Schriften („ER SIEHT DICH“, „LAUF“ …) und Handabdrücke erscheinen an Wänden hinter dir, Türen öffnen sich langsam von selbst, Glühbirnen platzen, Stühle drehen sich zu dir oder kippen um, Schattengestalten stehen in der Ferne und verschwinden im Licht, eine Spieluhr spielt, Schritte über der Decke.
 - **Fluchtphase:** Nach dem fünften Schlüssel wird der Ausgang entriegelt (Lampe an der Tür wird grün). Der Geist wird schneller und spürt regelmäßig, wo du ungefähr bist.
@@ -72,6 +72,10 @@ Das Bild wird **ausschließlich lokal im Browser** verarbeitet und nur im `local
 - **Safe Areas:** Alle Bedienelemente halten Abstand zu Notch, Dynamic Island, abgerundeten Ecken und Systemleisten (`env(safe-area-inset-*)`).
 - **Audio:** Der Audio-Kontext startet erst nach dem Antippen eines Menüknopfs. Beim App-/Tab-Wechsel wird Audio angehalten und beim Weiterspielen fortgesetzt.
 - **Unterbrechungen:** Wechsel in den Hintergrund, Anruf, Bildschirmsperre oder Fokusverlust pausieren das Spiel sofort (inkl. Geist und Spielzeit). Es geht erst nach Tippen auf **WEITERSPIELEN** weiter, mit kurzer Schonfrist gegen sofortigen Tod. Der Spielstand wird alle 5 Sekunden und bei jeder Pause lokal gespeichert; im Hauptmenü erscheint dann **WEITERSPIELEN**.
+
+## Sound
+
+Alles wird live im Browser synthetisiert (keine Audiodateien): Hall eines großen, leeren Gebäudes, eine sich langsam verändernde Klangfläche, heulender Wind, ächzende Rohre, Metallklirren, Donner, fernes Weinen, tropfendes Wasser im Keller. Jumpscares und der Tod haben laute, verzerrte Schreie mit Vokal-Formanten und einem wuchtigen Aufprall. Bei Verfolgungen treiben Trommeln, Herzschlag und das Knurren des Geistes. Mit „Intensive Schreckeffekte reduzieren“ werden Schocks leiser und ohne Schreie abgespielt.
 
 ## Grafik & Leistung
 
