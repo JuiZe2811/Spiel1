@@ -52,6 +52,9 @@ button:focus-visible, .file-btn:focus-within { outline: 2px solid var(--brass); 
 @keyframes grain { 0% { background-position: 0 0; } 25% { background-position: -37px 21px; } 50% { background-position: 53px -45px; } 75% { background-position: -18px 66px; } }
 #fx-vignette { z-index: 6; background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.75) 100%); }
 #fx-threat { z-index: 7; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(90, 0, 0, 0.75) 100%); transition: opacity 0.4s; }
+#fx-hunt { z-index: 7; opacity: 0; background: radial-gradient(ellipse at center, transparent 30%, rgba(150, 10, 0, 0.55) 100%); transition: opacity 0.8s; }
+body.hunt #fx-hunt { opacity: 1; animation: huntPulse 1.1s ease-in-out infinite; }
+@keyframes huntPulse { 50% { opacity: 0.45; } }
 #fx-flash { z-index: 8; background: #fff; opacity: 0; }
 #fx-flash.show { animation: flash 0.35s ease-out; }
 @keyframes flash { 0% { opacity: var(--a, 0.4); } 100% { opacity: 0; } }

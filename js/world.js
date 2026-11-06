@@ -584,7 +584,7 @@ export class World {
       bulb.scale.set(0.8, 0.03, 0.2);
       bulb.position.set(room.x, WALL_H - 0.08, room.z);
       this.group.add(bulb);
-      this.lights.push({ light: L, bulb, base: intensity, t: Math.random() * 5, flick: 0 });
+      this.lights.push({ light: L, bulb, base: intensity, color, t: Math.random() * 5, flick: 0 });
     }
   }
 
@@ -604,7 +604,10 @@ export class World {
       if (L.t <= 0) { L.flick = Math.random() < 0.35 + near * 0.6 ? 0.25 + Math.random() * 0.6 : 0; L.t = 1 + Math.random() * 4 * (1 - near); }
       let k = 1;
       if (L.flick > 0) { L.flick -= dt; k = Math.random() < 0.5 ? 0.05 : 1; }
+      if (this.blackout) k = 0;
+      else if (this.huntFlicker && Math.random() < 0.25) k = Math.random() * 0.3;
       L.light.intensity = L.base * k;
+      L.light.color.setHex(this.huntFlicker ? 0xff5040 : L.color);
       L.bulb.visible = k > 0.5;
     }
     const e = this.exit;

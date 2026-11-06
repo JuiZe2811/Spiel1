@@ -151,7 +151,7 @@ export class Ghost {
   _perceive(dt) {
     const pl = this.g.player, world = this.g.world;
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
-    let range = pl.flashlightOn ? 19 : 10;
+    let range = (pl.flashlightOn ? 19 : 10) * (1 + this.g.keysCollected * 0.06) * (this.g.hunting ? 1.2 : 1);
     if (pl.crouching) range *= 0.65;
     if (pl.sprinting) range *= 1.15;
     if (this.g.finalPhase) range *= 1.25;
@@ -220,7 +220,8 @@ export class Ghost {
     this.ignoreT = Math.max(0, this.ignoreT - dt);
     this.speedNow = 0;
     const dist = this._perceive(dt);
-    const bonus = this.g.finalPhase ? 1.15 : 1;
+    // Mit jedem Schlüssel und während einer Jagd wird er schneller.
+    const bonus = (this.g.finalPhase ? 1.15 : 1) * (1 + this.g.keysCollected * 0.04) * (this.g.hunting ? 1.12 : 1);
 
     if (this.state !== 'repel' && this.state !== 'chase' && this.awareness >= 1) this.setState('chase');
 

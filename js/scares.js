@@ -19,7 +19,7 @@ export class ScareDirector {
 
   reset() {
     this.timer = 0;
-    this.next = rand(14, 24);
+    this.next = rand(8, 14);
     this.active = null;
     this.hideAll();
   }
@@ -27,29 +27,43 @@ export class ScareDirector {
   hideAll() {
     this.phantom.group.visible = false; this.shadow.group.visible = false; this.winFace.visible = false;
     this.g.flickerOverride = null;
+    this.g.world.blackout = false;
+    this.phantom.group.rotation.set(0, 0, 0);
     this.g.ui.hideScareFace();
   }
 
-  interval() { return this.g.settings.reduceScares ? rand(35, 80) : rand(20, 60); }
+  // Nächsten Schreckmoment bald auslösen (z. B. nach einem Schlüsselfund).
+  soon(sec) { if (!this.active) this.next = Math.min(this.next, this.timer + sec); }
+
+  // Mit jedem Schlüssel wird es hektischer.
+  interval() {
+    const k = this.g.keysCollected;
+    return this.g.settings.reduceScares ? rand(28, 55) - k * 2 : Math.max(7, rand(10, 26) - k * 1.5);
+  }
 
   update(dt) {
     if (this.active) {
       this.active.t += dt;
-      if (this.active.step(dt, this.active.t) === true) { this.active = null; this.hideAll(); }
+      if (this.active.step(dt, this.active.t) === true) {
+        this.active = null; this.hideAll();
+        // Manchmal folgt direkt ein zweiter Schock
+        if (!this.g.settings.reduceScares && Math.random() < 0.3) this.next = this.timer + rand(1.5, 4);
+      }
       return;
     }
     this.timer += dt;
     if (this.timer < this.next) return;
     const ghost = this.g.ghost, pl = this.g.player.pos;
-    if (ghost.chasing || ghost.state === 'repel' || Math.hypot(ghost.pos.x - pl.x, ghost.pos.z - pl.z) < 10) { this.next = this.timer + 4; return; }
+    if (ghost.chasing || ghost.state === 'repel' || Math.hypot(ghost.pos.x - pl.x, ghost.pos.z - pl.z) < 8) { this.next = this.timer + 4; return; }
     this.trigger();
   }
 
   trigger(name) {
-    const all = ['faceFlash', 'doorFigure', 'shadowRun', 'flickerReveal', 'doorSlam', 'rushGhost', 'windowFace', 'whisper', 'floatAcross', 'furnitureMove'];
+    const all = ['faceFlash', 'doorFigure', 'shadowRun', 'flickerReveal', 'doorSlam', 'rushGhost', 'windowFace', 'whisper', 'floatAcross', 'furnitureMove',
+      'blackout', 'stepsBehind', 'behindYou', 'ceilingHang', 'banging', 'phoneRing', 'giggle', 'subliminal', 'doorChain', 'distantScream'];
     const options = all.filter((n) => !this.recent.includes(n));
     const pick = name || choice(options);
-    this.recent.push(pick); if (this.recent.length > 4) this.recent.shift();
+    this.recent.push(pick); if (this.recent.length > 8) this.recent.shift();
     this.timer = 0; this.next = this.interval();
     const ev = this[pick]();
     if (ev) { ev.t = 0; ev.name = pick; this.active = ev; }
@@ -83,6 +97,7 @@ export class ScareDirector {
   place(model, x, z, faceToPlayer = true) {
     const P = this.playerInfo();
     model.group.position.set(x, 0, z);
+    model.group.rotation.set(0, 0, 0);
     if (faceToPlayer) model.group.rotation.y = Math.atan2(P.x - x, P.z - z);
     model.group.visible = true;
   }
@@ -283,5 +298,162 @@ export class ScareDirector {
         return t > 0.9;
       },
     };
+  }
+
+  // ---------- Neue Ereignisse ----------
+  blackout() {
+    const g = this.g, w = g.world;
+    w.blackout = true;
+    g.audio.bang({ x: g.player.pos.x, y: 3, z: g.player.pos.z }, 0.5);
+    let spot = null, shown = false;
+    return {
+      step: (dt, t) => {
+        g.flickerOverride = t < 2.6 ? 0 : (t < 2.9 ? (Math.random() < 0.5 ? 1 : 0) : null);
+        if (t > 0.6 && t < 0.65) g.audio.whisper(null);
+        if (!shown && t > 2.6) {
+          shown = true; w.blackout = false;
+          spot = this.spotInView(1.6, 2.6, 0.08);
+          if (spot) { this.place(this.phantom, spot.x, spot.z); g.audio.stinger(g.settings.reduceScares ? 0.5 : 1); g.shake(0.3); }
+        }
+        if (this.phantom.group.visible) this.phantom.animate(dt, 1, 0);
+        if (t > 3.15) this.phantom.group.visible = false;
+        return t > 3.3;
+      },
+    };
+  }
+
+  stepsBehind() {
+    const P = this.playerInfo(), pts = [];
+    for (let i = 0; i < 9; i++) {
+      const d = 9 - i * 0.95;
+      pts.push({ x: P.x - P.fx * d, y: 0.2, z: P.z - P.fz * d });
+    }
+    this.g.audio.stepsAt(pts, 0.32);
+    return {
+      step: (dt, t) => {
+        if (t > 3.1 && t < 3.15) { this.g.audio.whisper({ x: P.x - P.fx * 0.6, y: 1.6, z: P.z - P.fz * 0.6 }); }
+        return t > 4.6;
+      },
+    };
+  }
+
+  behindYou() {
+    const P = this.playerInfo(), w = this.g.world;
+    const x = P.x - P.fx * 2.2, z = P.z - P.fz * 2.2;
+    if (!w.isOpen(w.cell(x), w.cell(z)) || !w.lineOfSight(P.x, P.z, x, z)) return this.stepsBehind();
+    this.place(this.phantom, x, z);
+    this.g.audio.breath();
+    this.g.audio.whisper({ x, y: 1.6, z });
+    this.g.ui.message('… hinter dir …', 2);
+    let seen = 0;
+    return {
+      step: (dt, t) => {
+        this.place(this.phantom, x, z);
+        this.phantom.animate(dt, 0.8, 0);
+        if (!seen && this.inView(x, z, 0.55)) {
+          seen = t;
+          this.g.audio.stinger(this.g.settings.reduceScares ? 0.5 : 1);
+          this.g.shake(0.35);
+        }
+        if (seen) return t - seen > 0.45;   // kurz sichtbar lassen, dann weg
+        return t > 7;
+      },
+    };
+  }
+
+  ceilingHang() {
+    const s = this.spotInView(3.5, 7, 0.15);
+    if (!s) return this.giggle();
+    const g = this.g;
+    this.place(this.phantom, s.x, s.z);
+    const ry = this.phantom.group.rotation.y;
+    this.phantom.group.rotation.set(Math.PI, ry + Math.PI, 0, 'YXZ');
+    this.phantom.group.position.y = 3.05;
+    g.audio.moan({ x: s.x, y: 2.2, z: s.z }, 0.35);
+    let fall = 0;
+    return {
+      step: (dt, t) => {
+        const p = this.phantom.group.position, pl = g.player.pos;
+        this.phantom.animate(dt, 1, 0);
+        const near = Math.hypot(p.x - pl.x, p.z - pl.z) < 2.5;
+        if ((t > 1.8 || near) && !fall) { fall = t; g.audio.stinger(g.settings.reduceScares ? 0.5 : 1); g.shake(0.25); }
+        if (fall) { this.phantom.group.position.y = Math.max(0.2, 3.05 - (t - fall) * 9); }
+        else this.phantom.group.position.y = 3.05 + Math.sin(t * 3) * 0.04;
+        return fall && t - fall > 0.35;
+      },
+    };
+  }
+
+  banging() {
+    const P = this.playerInfo(), w = this.g.world;
+    // Nächste Wand neben dem Spieler suchen
+    let pos = null;
+    for (const [dx, dz] of [[P.rx, P.rz], [-P.rx, -P.rz], [-P.fx, -P.fz], [P.fx, P.fz]]) {
+      const d = w.freeDistance(P.x, P.z, dx, dz, 5);
+      if (d < 5) { pos = { x: P.x + dx * (d + 0.3), y: 1.5, z: P.z + dz * (d + 0.3) }; break; }
+    }
+    if (!pos) pos = { x: P.x + P.rx * 3, y: 1.5, z: P.z + P.rz * 3 };
+    const times = [0, 0.55, 1.1, 1.5, 1.8, 2.05, 2.25, 2.4];
+    let i = 0;
+    return {
+      step: (dt, t) => {
+        while (i < times.length && t >= times[i]) { this.g.audio.bang(pos, 0.5 + i * 0.07); if (i > 4) this.g.shake(0.08); i++; }
+        return t > 2.8;
+      },
+    };
+  }
+
+  phoneRing() {
+    const P = this.playerInfo();
+    const reg = this.g.world.regions.filter((r) => r.zone === 'o')
+      .map((r) => ({ x: this.g.world.center(Math.round(r.cx)), z: this.g.world.center(Math.round(r.cz)) }))
+      .sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
+    const pos = reg ? { x: reg.x, y: 0.9, z: reg.z } : { x: P.x + 6, y: 0.9, z: P.z };
+    this.g.audio.phoneRing(pos);
+    this.g.makeNoise(pos.x, pos.z, 14);   // Auch der Geist hört es
+    return { step: (dt, t) => t > 4.8 };
+  }
+
+  giggle() {
+    const P = this.playerInfo(), a = rand(0, Math.PI * 2), d = rand(4, 9);
+    this.g.audio.giggle({ x: P.x + Math.cos(a) * d, y: 1.0, z: P.z + Math.sin(a) * d });
+    return { step: (dt, t) => t > 1.2 };
+  }
+
+  subliminal() {
+    const g = this.g, red = g.settings.reduceScares;
+    const flashes = red ? [0.1] : [0.05, 0.4, 0.62];
+    let i = 0, off = -1;
+    g.audio.whoosh(null);
+    return {
+      step: (dt, t) => {
+        if (i < flashes.length && t >= flashes[i]) { g.ui.showScareFace(red ? 0.35 : 0.6); g.flickerOverride = 0.05; off = t + 0.07; i++; }
+        if (off > 0 && t > off) { g.ui.hideScareFace(); g.flickerOverride = null; off = -1; }
+        return t > 0.9;
+      },
+    };
+  }
+
+  doorChain() {
+    const P = this.playerInfo(), w = this.g.world;
+    const doors = w.doors.slice().sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z)).slice(0, 4);
+    let i = 0;
+    return {
+      step: (dt, t) => {
+        if (i < doors.length && t >= i * 0.45) {
+          const d = doors[i++];
+          if (d.open && Math.hypot(d.x - P.x, d.z - P.z) > 1.2) w.setDoor(d, false, 0, 0, true);
+          this.g.audio.doorSlam({ x: d.x, y: 1.2, z: d.z });
+          this.g.shake(0.12);
+        }
+        return t > doors.length * 0.45 + 0.4;
+      },
+    };
+  }
+
+  distantScream() {
+    const P = this.playerInfo(), a = rand(0, Math.PI * 2);
+    this.g.audio.distantScream({ x: P.x + Math.cos(a) * 14, y: 1.5, z: P.z + Math.sin(a) * 14 });
+    return { step: (dt, t) => t > 1.8 };
   }
 }

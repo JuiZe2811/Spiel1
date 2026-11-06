@@ -185,6 +185,7 @@ class Game {
     this.audio.silenceGame();
     this.scares.hideAll();
     this.ui.threat(0);
+    this._endHunt(true);
     // Kulisse für das Menü
     this.world.resetDynamic();
     this.keys.forEach((k) => { k.group.visible = false; });
@@ -205,6 +206,8 @@ class Game {
     this.ghost.reset(far.x, far.z);
     this.elapsed = 0;
     this.finalPhase = false;
+    this.hunting = false;
+    this.huntNext = rand(45, 70);
     this.grace = 3;
     this.ui.message('Finde die fünf Schlüssel. Er hört dich.', 4.5);
     this._play();
@@ -244,6 +247,8 @@ class Game {
     this.input.crouchToggle = false; this.input.sprintToggle = false;
     this.ui.fade(false);
     this.ui.objective('Finde die fünf Schlüssel');
+    this._endHunt(true);
+    this.huntNext = rand(45, 70);
     $('#scare-face').classList.remove('show');
   }
 
@@ -350,6 +355,9 @@ class Game {
       this.ui.setKeys(n, TOTAL_KEYS);
       if (n >= TOTAL_KEYS) this._unlockExit(false);
       else this.ui.message(`Schlüssel gefunden — ${n}/${TOTAL_KEYS}`, 2.5);
+      // Jeder Fund hat Folgen: ein Schock kurz danach, beim 2. und 4. Schlüssel beginnt eine Jagd.
+      this.scares.soon(rand(1.5, 3));
+      if (n === 2 || n === 4) this.huntNext = Math.min(this.huntNext, 5);
       this.save();
     } else if (it.type === 'door') {
       const d = it.door, p = this.player.pos;
@@ -398,6 +406,7 @@ class Game {
     this.scares.hideAll();
     this.ui.setPlayMode(false, this.input.mode);
     this.ui.threat(0);
+    this._endHunt(true);
     const red = settings.reduceScares;
     this.audio.scream(red ? 0.5 : 1);
     this.ui.showScareFace(red ? 0.6 : 1.15);
@@ -416,6 +425,7 @@ class Game {
     this.world.exit.outside.visible = true;
     this.audio.silenceGame();
     this.ui.threat(0);
+    this._endHunt(true);
     this.audio.win();
     this.ui.setPlayMode(false, this.input.mode);
     setTimeout(() => this.ui.fade(true, '#e9ecef'), 500);
@@ -480,6 +490,7 @@ class Game {
     g.update(dt);
     this.world.update(dt, g.pos);
     this.scares.update(dt);
+    this._updateHunt(dt);
 
     // Kruzifix schützt aktiv
     if (pl.crossActive > 0 && g.state !== 'repel' && gd < 8 && (gd < 3.5 || this.world.lineOfSight(g.pos.x, g.pos.z, pl.pos.x, pl.pos.z))) {
@@ -503,6 +514,7 @@ class Game {
     let threat = 0;
     if (g.state === 'chase') threat = 1;
     else if (g.state !== 'repel') threat = clamp(1 - gd / 14, 0, 1) * (g.state === 'wander' ? 0.45 : 0.75);
+    if (this.hunting) threat = Math.max(threat, 0.6);
     this.audio.setThreat(threat);
     this.audio.update(dt, this.world.zoneAtPos(pl.pos.x, pl.pos.z) === 'k');
     const f = pl.forward();
@@ -518,6 +530,42 @@ class Game {
 
     this.saveT += dt;
     if (this.saveT > 5) { this.saveT = 0; this.save(); }
+  }
+
+  // ---------- Jagdphasen: rote Lichter, er sucht gezielt in deiner Nähe ----------
+  _updateHunt(dt) {
+    const g = this.ghost, pl = this.player.pos;
+    if (!this.hunting) {
+      this.huntNext -= dt;
+      if (this.huntNext > 0 || g.chasing || g.state === 'repel' || this.grace > 0) return;
+      this.hunting = true;
+      this.huntT = 14 + this.keysCollected * 1.5;
+      this.huntPing = 1.5;
+      this.world.huntFlicker = true;
+      document.body.classList.add('hunt');
+      this.audio.huntSiren();
+      this.shake(0.2);
+      this.ui.message('Die Lichter werden rot. ER JAGT DICH — versteck dich!', 3.5);
+      return;
+    }
+    this.huntT -= dt;
+    this.huntPing -= dt;
+    if (this.huntPing <= 0) {
+      this.huntPing = 4;
+      // Er kennt nur deine ungefähre Position: Ducken, Licht aus und Türen schließen helfen.
+      if (!g.chasing && g.state !== 'repel') { g.setState('investigate'); g.goTo(pl.x + rand(-4, 4), pl.z + rand(-4, 4)); }
+    }
+    if (this.huntT <= 0) {
+      this._endHunt(false);
+      this.ui.message('Die Jagd ist vorbei … vorerst.', 2.5);
+    }
+  }
+
+  _endHunt(silent) {
+    this.hunting = false;
+    this.world.huntFlicker = false;
+    document.body.classList.remove('hunt');
+    if (!silent) this.huntNext = Math.max(30, rand(60, 95) - this.keysCollected * 7);
   }
 
   _updateDying(dt) {

@@ -242,6 +242,39 @@ export class AudioEngine {
   }
   win() { [262, 330, 392, 523].forEach((f, i) => this._tone({ freq: f, dur: 2.5, gain: 0.12, when: i * 0.15, attack: 0.1 })); }
 
+  // ---------- Zusätzliche Schreck-Geräusche ----------
+  phoneRing(pos) {
+    for (let r = 0; r < 3; r++) for (const f of [440, 480]) {
+      for (let i = 0; i < 10; i++) this._tone({ freq: f, type: 'square', dur: 0.05, gain: 0.05, attack: 0.005, pos, when: r * 1.6 + i * 0.05 });
+    }
+  }
+  giggle(pos) {
+    const base = rand(600, 760);
+    for (let i = 0; i < 6; i++) this._tone({ freq: base * rand(0.95, 1.1), freqEnd: base * 0.8, type: 'triangle', dur: 0.12, gain: 0.22 * this.scareScale, attack: 0.01, pos, when: i * 0.14, vib: 20 });
+  }
+  bang(pos, strength = 1) {
+    const k = strength * this.scareScale;
+    this._noise({ dur: 0.18, type: 'lowpass', freq: 500, gain: 0.9 * k, attack: 0.003, pos });
+    this._tone({ freq: 70, freqEnd: 40, dur: 0.2, gain: 0.8 * k, pos });
+  }
+  distantScream(pos) {
+    this._tone({ freq: 800, freqEnd: 420, type: 'sawtooth', dur: 1.6, gain: 0.35 * this.scareScale, attack: 0.08, pos, vib: 45 });
+    this._noise({ dur: 1.4, freq: 1800, q: 1, gain: 0.3 * this.scareScale, attack: 0.1, pos });
+  }
+  stepsAt(points, interval) {
+    points.forEach((p, i) => {
+      this._noise({ dur: 0.08, freq: 900, gain: 0.35 + i * 0.06, pos: p, when: i * interval });
+      this._noise({ dur: 0.1, type: 'lowpass', freq: 200, gain: 0.3 + i * 0.05, pos: p, when: i * interval });
+    });
+  }
+  huntSiren() {
+    const k = this.scareScale;
+    this._tone({ freq: 55, freqEnd: 50, type: 'sawtooth', dur: 3.5, gain: 0.35 * k, attack: 0.6 });
+    this._tone({ freq: 58, freqEnd: 52, type: 'sawtooth', dur: 3.5, gain: 0.3 * k, attack: 0.6 });
+    this._tone({ freq: 1600, freqEnd: 400, type: 'sine', dur: 2.5, gain: 0.08 * k, attack: 0.3, vib: 30 });
+    this._noise({ dur: 2.5, freq: 300, freqEnd: 3000, q: 2, gain: 0.25 * k, attack: 1.2 });
+  }
+
   setGhost(pos, intensity) {
     if (!this.ctx) return;
     this._setPos(this.ghostPan, pos.x, 1.5, pos.z);
