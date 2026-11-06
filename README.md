@@ -1,5 +1,7 @@
 # Die fünf Schlüssel
 
+**Version 1.2.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
 Du bist in einem verlassenen Gebäude eingeschlossen. Finde fünf versteckte Schlüssel, entriegle die Ausgangstür in der Eingangshalle und entkomme – während ein Geist dich durch Flure, Büros, Lager und den Keller jagt. Du hast nur eine Taschenlampe und ein Kruzifix.
@@ -31,20 +33,24 @@ Alle Ressourcen (Three.js, Schriften, Texturen, Klänge) liegen im Repository od
 |---|---|---|
 | Bewegen | Virtueller Joystick (linke Bildschirmhälfte, erscheint unter dem Daumen) | W A S D |
 | Umsehen | Rechte Bildschirmhälfte wischen | Maus (ins Bild klicken für Pointer Lock) |
-| Rennen | Taste **Sprint** (umschaltbar) | Shift halten |
-| Ducken | Taste **Ducken** (umschaltbar) | C oder Strg halten |
+| Rennen | Großer Knopf **Sprint** unten rechts (umschaltbar) | Shift halten |
 | Taschenlampe | Taste **Licht** | F |
-| Kruzifix | Taste **Kruzifix** | Q |
+| Kruzifix | Taste **Kreuz** (Abklingzeit als Ring) | Q |
+| Bengalo werfen | Taste **Bengalo** (Zähler am Knopf) | G |
+| Schlüssel-Hinweis | Taste **Hinweis** | H |
 | Interagieren | Taste **INTERAGIEREN** / **AUFNEHMEN** erscheint bei Türen, Schlüsseln, Ausgang | E |
 | Pause | Pause-Knopf oben links | Esc |
 
 Die Oberfläche wird automatisch gewählt: Touch-Geräte (auch iPads, die sich als Mac ausgeben) bekommen die Touch-Steuerung, unabhängig von der Bildschirmgröße. Wechselt man das Eingabegerät (z. B. Tablet mit Maus), schaltet die Oberfläche um.
 
-Tipp für PC: **Strg+W** schließt im Browser den Tab und lässt sich von Webseiten nicht abfangen. Zum Ducken ist **C** sicherer.
+Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Knopf in der Ecke, darum Licht, Kreuz, Bengalo und Hinweis. Die Drehempfindlichkeit ist getrennt für Touch und Maus einstellbar (Einstellungen oder direkt im Pausenmenü).
 
 ## Spielmechanik
 
 - **Schlüssel:** Fünf Schlüssel werden bei jedem Spielstart zufällig auf fünf verschiedene Räume verteilt (auf Tischen, Kisten oder in Ecken). Sie leuchten golden, damit sie auch auf kleinen Displays erkennbar sind.
+- **Schlüssel-Hinweis:** Die Hinweis-Taste zeigt 8 Sekunden lang einen Pfeil mit Entfernung und eine goldene Lichtsäule (durch Wände sichtbar) zum nächsten Schlüssel, danach 30 Sekunden Abklingzeit. Schlüssel in der Nähe (unter 9 m) klingeln leise.
+- **Rote Bengalos:** 7 Stück liegen rot leuchtend im Gebäude. Man trägt bis zu 3, jeder kann einmal geworfen werden. Er fliegt in Blickrichtung, prallt von Wänden ab und leuchtet 30 Sekunden lang die Umgebung rot aus.
+- **Die Welt lebt:** Etwa alle 5–10 Sekunden verändert sich etwas: blutige Schriften („ER SIEHT DICH“, „LAUF“ …) und Handabdrücke erscheinen an Wänden hinter dir, Türen öffnen sich langsam von selbst, Glühbirnen platzen, Stühle drehen sich zu dir oder kippen um, Schattengestalten stehen in der Ferne und verschwinden im Licht, eine Spieluhr spielt, Schritte über der Decke.
 - **Fluchtphase:** Nach dem fünften Schlüssel wird der Ausgang entriegelt (Lampe an der Tür wird grün). Der Geist wird schneller und spürt regelmäßig, wo du ungefähr bist.
 - **Kruzifix:** 4 Sekunden Schutz, danach 20 Sekunden Abklingzeit. Ist der Geist in der Nähe, wird er zurückgedrängt und verliert deine Spur.
 - **Taschenlampe:** Ohne Batterie, flackert, wenn der echte Geist nahe ist. Eingeschaltet sieht der Geist dich aus größerer Entfernung.

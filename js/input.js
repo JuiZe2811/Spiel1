@@ -11,7 +11,7 @@ export function detectTouchPrimary() {
 }
 
 const GAME_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight',
-  'ControlLeft', 'ControlRight', 'KeyC', 'KeyE', 'KeyF', 'KeyQ', 'Space']);
+  'KeyE', 'KeyF', 'KeyQ', 'KeyG', 'KeyH', 'Space']);
 
 export class Input {
   constructor({ canvas, joyZone, lookZone, joyBase, joyKnob, buttons }) {
@@ -20,7 +20,7 @@ export class Input {
     this.actions = [];
     this.lookDX = 0; this.lookDY = 0;
     this.joy = { x: 0, y: 0 };
-    this.sprintToggle = false; this.crouchToggle = false;
+    this.sprintToggle = false;
     this.active = false;            // nur während des Spiels Eingaben sammeln
     this.mode = detectTouchPrimary() ? 'touch' : 'desktop';
     this.onModeChange = null;
@@ -37,7 +37,7 @@ export class Input {
       this.keys.add(e.code);
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code) && this.mode !== 'desktop') this._setMode('desktop');
       if (!this.active) { if (e.code === 'Escape' || e.code === 'KeyP') this.actions.push('pause'); return; }
-      const map = { KeyF: 'light', KeyQ: 'cross', KeyE: 'interact', Escape: 'pause', KeyP: 'pause' };
+      const map = { KeyF: 'light', KeyQ: 'cross', KeyE: 'interact', KeyG: 'flare', KeyH: 'hint', Escape: 'pause', KeyP: 'pause' };
       if (map[e.code]) this.actions.push(map[e.code]);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -134,7 +134,6 @@ export class Input {
   _press(act) {
     if (!this.active && act !== 'pause') return;
     if (act === 'sprint') { this.sprintToggle = !this.sprintToggle; return; }
-    if (act === 'crouch') { this.crouchToggle = !this.crouchToggle; if (this.crouchToggle) this.sprintToggle = false; return; }
     this.actions.push(act);
   }
 
@@ -196,7 +195,7 @@ export class Input {
     return clamp(y, -1, 1);
   }
   get sprint() { return this.sprintToggle || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
-  get crouch() { return this.crouchToggle || this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyC'); }
+  get crouch() { return false; }
 
   consumeLook() { const r = [this.lookDX, this.lookDY]; this.lookDX = this.lookDY = 0; return r; }
   consumeActions() { const a = this.actions; this.actions = []; return a; }

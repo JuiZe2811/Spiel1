@@ -275,6 +275,52 @@ export class AudioEngine {
     this._noise({ dur: 2.5, freq: 300, freqEnd: 3000, q: 2, gain: 0.25 * k, attack: 1.2 });
   }
 
+  // ---------- Bengalos ----------
+  flareIgnite() {
+    this._noise({ dur: 0.5, type: 'highpass', freq: 2500, gain: 0.5, attack: 0.01 });
+    this._noise({ dur: 0.3, freq: 600, freqEnd: 2000, q: 1, gain: 0.3 });
+  }
+  flareLand(pos) { this._noise({ dur: 0.12, type: 'lowpass', freq: 900, gain: 0.35, pos }); }
+  // Dauerhaftes Zischen/Knistern eines brennenden Bengalos
+  flareLoop(pos) {
+    const dummy = { setPos() {}, stop() {} };
+    if (!this.ctx) return dummy;
+    const c = this.ctx;
+    const src = this._loop(this.noise);
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3200; f.Q.value = 0.8;
+    const g = c.createGain(); g.gain.value = 0.28;
+    const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 13;
+    const lg = c.createGain(); lg.gain.value = 0.08; lfo.connect(lg).connect(g.gain); lfo.start();
+    const p = this._panner(pos.x, pos.y, pos.z);
+    src.connect(f).connect(g).connect(p).connect(this.sfx);
+    return {
+      setPos: (q, fade = 1) => { this._setPos(p, q.x, q.y, q.z); g.gain.setTargetAtTime(0.28 * fade, c.currentTime, 0.1); },
+      stop: () => { try { src.stop(); lfo.stop(); } catch { /* schon gestoppt */ } },
+    };
+  }
+
+  // ---------- Welt-Ereignisse & Hilfe ----------
+  keyChime(pos) { [1568, 2093].forEach((f, i) => this._tone({ freq: f, dur: 0.5, gain: 0.07, pos, when: i * 0.09 })); }
+  hintPing() { [784, 1175, 1568].forEach((f, i) => this._tone({ freq: f, dur: 0.6, gain: 0.1, when: i * 0.07 })); }
+  musicBox(pos) {
+    const notes = [659, 622, 659, 494, 587, 523, 440, 0, 262, 330, 440, 494];
+    notes.forEach((f, i) => { if (f) this._tone({ freq: f, dur: 0.7, gain: 0.08, pos, when: i * 0.32 * (1 + i * 0.03) }); });
+  }
+  bulbPop(pos) {
+    this._noise({ dur: 0.08, type: 'highpass', freq: 3000, gain: 0.6, pos });
+    for (let i = 0; i < 5; i++) this._noise({ dur: 0.05, freq: rand(3000, 6000), q: 4, gain: 0.2, pos, when: 0.05 + i * rand(0.03, 0.09) });
+  }
+  creakSlow(pos) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(60, t);
+    for (let i = 1; i < 20; i++) o.frequency.linearRampToValueAtTime(rand(45, 120), t + i * 0.12);
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 9;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+    o.connect(f).connect(g).connect(this._dest(pos)); o.start(t); o.stop(t + 2.5);
+  }
+
   setGhost(pos, intensity) {
     if (!this.ctx) return;
     this._setPos(this.ghostPan, pos.x, 1.5, pos.z);

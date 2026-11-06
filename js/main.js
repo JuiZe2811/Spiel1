@@ -9,7 +9,10 @@ import { ScareDirector } from './scares.js';
 import { AudioEngine } from './audio.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
-import { $, $$, store, rand, clamp, shuffle } from './util.js';
+import { Flares, MAX_FLARES } from './flares.js';
+import { AmbientDirector } from './ambient.js';
+import { VERSION } from './version.js';
+import { $, $$, store, rand, clamp, shuffle, angleDiff } from './util.js';
 
 const SAVE_KEY = 'f5s_save_v1';
 const TOTAL_KEYS = 5;
@@ -51,6 +54,14 @@ class Game {
     this.ghost = new Ghost(this, this.ghostModel);
     this.scares = new ScareDirector(this, new GhostModel(gm), new GhostModel(gm, true));
     this._buildKeys();
+    this.flares = new Flares(this);
+    this.ambient = new AmbientDirector(this, new GhostModel(gm, true));
+    // Leuchtsäule für den Schlüssel-Hinweis (durch Wände sichtbar)
+    this.hintBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 7, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.3, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+    this.hintBeam.visible = false; this.hintBeam.renderOrder = 10;
+    this.scene.add(this.hintBeam);
+    this.hintT = 0; this.hintCd = 0; this.chimeT = 0;
 
     this.scale = q.startScale;
     this.shakeAmt = 0;
@@ -143,7 +154,7 @@ class Game {
       inner.add(r, s, t1, t2);
       inner.scale.setScalar(1.5);
       const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.tex.glow, color: 0xffcf6a, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-      glow.scale.set(0.9, 0.9, 1);
+      glow.scale.set(1.3, 1.3, 1);
       g.add(inner, glow);
       g.visible = false;
       this.scene.add(g);
@@ -189,6 +200,10 @@ class Game {
     // Kulisse für das Menü
     this.world.resetDynamic();
     this.keys.forEach((k) => { k.group.visible = false; });
+    this.flares.pickups.forEach((p) => { p.group.visible = false; });
+    this.flares.clearActive();
+    this.ambient.reset();
+    this.hintBeam.visible = false;
     this.player.reset(this.world.start.x, this.world.start.z + 1, 0);
     this.ghostModel.group.visible = true;
     this.ghostModel.group.position.set(this.world.start.x + 0.6, 0, this.world.start.z - 13);
@@ -200,6 +215,7 @@ class Game {
     store.del(SAVE_KEY);
     this._startCommon();
     this._placeKeys(null);
+    this.flares.place(null);
     this.player.reset(this.world.start.x, this.world.start.z, 0);
     const s = this.world.start;
     const far = this.world.randomWalkable((p) => Math.hypot(p.x - s.x, p.z - s.z) > 28);
@@ -218,6 +234,7 @@ class Game {
     if (!s || !s.keys) return this.newGame();
     this._startCommon();
     this._placeKeys(s.keys);
+    this.flares.place(s.flares || null);
     s.doors.forEach((open, i) => {
       const d = this.world.doors[i];
       if (d && open) { this.world.setDoor(d, true, d.x - 1, d.z - 1); d.angle = d.target; d.pivot.rotation.y = d.angle; }
@@ -244,7 +261,9 @@ class Game {
     this.world.resetDynamic();
     this.scares.reset();
     this.ghostModel.group.visible = true;
-    this.input.crouchToggle = false; this.input.sprintToggle = false;
+    this.input.sprintToggle = false;
+    this.ambient.reset();
+    this.hintT = 0; this.hintCd = 0; this.hintBeam.visible = false; this.ui.hint(false);
     this.ui.fade(false);
     this.ui.objective('Finde die fünf Schlüssel');
     this._endHunt(true);
@@ -279,6 +298,7 @@ class Game {
     this.audio.suspend();
     this.ui.setPlayMode(false, this.input.mode);
     $('#pause-note').hidden = !auto;
+    this._syncSettingsUI();
     this.ui.show('screen-pause', false);
   }
 
@@ -305,6 +325,7 @@ class Game {
       ghost: this.ghost.serialize(),
       elapsed: this.elapsed,
       finalPhase: this.finalPhase,
+      flares: this.flares.serialize(),
     });
   }
 
@@ -336,6 +357,13 @@ class Game {
       if (d > 1.0 && facing < 0.25) continue;
       consider(d, { type: 'door', door, desk: door.open ? 'Tür schließen' : 'Tür öffnen', touch: door.open ? 'TÜR ZU' : 'TÜR ÖFFNEN' });
     }
+    for (const pk of this.flares.pickups) {
+      if (pk.taken) continue;
+      const d = Math.hypot(pk.x - p.x, pk.z - p.z);
+      if (d < 1.6) consider(d - 0.3, this.flares.count >= MAX_FLARES
+        ? { type: 'flareFull', desk: `Bengalo (du trägst schon ${MAX_FLARES})`, touch: `VOLL ${MAX_FLARES}/${MAX_FLARES}` }
+        : { type: 'flare', pk, desk: 'Bengalo aufnehmen', touch: 'BENGALO' });
+    }
     const e = this.world.exit;
     const de = Math.hypot(e.x - p.x, e.z - p.z);
     if (de < 2.2) consider(de, e.unlocked
@@ -359,6 +387,15 @@ class Game {
       this.scares.soon(rand(1.5, 3));
       if (n === 2 || n === 4) this.huntNext = Math.min(this.huntNext, 5);
       this.save();
+    } else if (it.type === 'flare') {
+      if (this.flares.take(it.pk)) {
+        this.audio.click(); this.audio.keyChime(null);
+        const how = this.input.mode === 'touch' ? 'mit der Bengalo-Taste' : 'mit G';
+        this.ui.message(`Roter Bengalo eingesammelt (${this.flares.count}/${MAX_FLARES}). Werfen ${how}.`, 3);
+        this.save();
+      }
+    } else if (it.type === 'flareFull') {
+      this.ui.message(`Du kannst nur ${MAX_FLARES} Bengalos tragen. Wirf erst einen.`, 2);
     } else if (it.type === 'door') {
       const d = it.door, p = this.player.pos;
       if (d.open && Math.hypot(d.x - p.x, d.z - p.z) < 0.75) { this.ui.message('Du stehst in der Tür.', 1.5); return; }
@@ -465,7 +502,7 @@ class Game {
     this.grace = Math.max(0, this.grace - dt);
 
     const [dx, dy] = input.consumeLook();
-    pl.look(dx, dy, settings.sensitivity, settings.invertY);
+    pl.look(dx, dy, input.mode === 'touch' ? settings.sensTouch : settings.sensMouse, settings.invertY);
 
     const it = this._findInteractable();
     for (const a of input.consumeActions()) {
@@ -473,6 +510,11 @@ class Game {
       if (a === 'light') { pl.flashlightOn = !pl.flashlightOn; this.audio.click(); }
       if (a === 'cross') this._useCrucifix();
       if (a === 'interact') this._interact(it);
+      if (a === 'flare') {
+        if (this.flares.throw() === 'none') this.ui.message('Du hast keinen Bengalo. Sie liegen rot leuchtend im Gebäude.', 2.2);
+        else this.makeNoise(pl.pos.x, pl.pos.z, 5);
+      }
+      if (a === 'hint') this._useHint();
     }
 
     // Taschenlampe flackert, wenn der echte Geist nahe ist
@@ -490,7 +532,10 @@ class Game {
     g.update(dt);
     this.world.update(dt, g.pos);
     this.scares.update(dt);
+    this.ambient.update(dt);
+    this.flares.update(dt);
     this._updateHunt(dt);
+    this._updateHint(dt);
 
     // Kruzifix schützt aktiv
     if (pl.crossActive > 0 && g.state !== 'repel' && gd < 8 && (gd < 3.5 || this.world.lineOfSight(g.pos.x, g.pos.z, pl.pos.x, pl.pos.z))) {
@@ -525,11 +570,48 @@ class Game {
     this.ui.prompt(it);
     this.ui.stamina(pl.stamina, pl.exhausted);
     this.ui.crossState(pl.crossActive > 0, pl.crossCooldown);
-    this.ui.toggles(pl.flashlightOn, input.sprintToggle, input.crouchToggle);
+    this.ui.toggles(pl.flashlightOn, input.sprintToggle);
+    this.ui.inventory(this.flares.count, this.hintCd, this.hintT > 0);
     this.ui.lockHint(input.mode === 'desktop' && !input.pointerLocked);
 
     this.saveT += dt;
     if (this.saveT > 5) { this.saveT = 0; this.save(); }
+  }
+
+  // ---------- Schlüssel-Hilfe ----------
+  _hintTarget() {
+    const p = this.player.pos;
+    let best = null, bd = 1e9;
+    for (const k of this.keys) if (!k.collected) { const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < bd) { bd = d; best = k; } }
+    if (!best) { const e = this.world.exit; return { x: e.x, z: e.z, y: 0, exit: true, d: Math.hypot(e.x - p.x, e.z - p.z) }; }
+    return { x: best.x, z: best.z, y: best.y, d: bd };
+  }
+
+  _useHint() {
+    if (this.hintT > 0) return;
+    if (this.hintCd > 0) { this.ui.message(`Der Hinweis lädt noch (${Math.ceil(this.hintCd)} s).`, 1.8); return; }
+    this.hintT = 8; this.hintCd = 30;
+    this.audio.hintPing();
+    const t = this._hintTarget();
+    this.ui.message(t.exit ? 'Der Ausgang liegt in dieser Richtung.' : 'Folge dem goldenen Licht zum nächsten Schlüssel.', 2.5);
+  }
+
+  _updateHint(dt) {
+    const pl = this.player;
+    const t = this._hintTarget();
+    if (this.hintT > 0) {
+      this.hintT -= dt;
+      const targetYaw = Math.atan2(-(t.x - pl.pos.x), -(t.z - pl.pos.z));
+      const rel = angleDiff(pl.yaw, targetYaw);
+      this.ui.hint(true, -rel * 180 / Math.PI, t.d);
+      this.hintBeam.visible = true;
+      this.hintBeam.position.set(t.x, 3.5, t.z);
+      this.hintBeam.material.opacity = 0.18 + Math.sin(performance.now() * 0.006) * 0.08;
+      if (this.hintT <= 0) { this.ui.hint(false); this.hintBeam.visible = false; }
+    } else this.hintCd = Math.max(0, this.hintCd - dt);
+    // Schlüssel in der Nähe klingeln leise (hilft beim Suchen)
+    this.chimeT -= dt;
+    if (!t.exit && t.d < 9 && this.chimeT <= 0) { this.chimeT = 1.6 + t.d * 0.15; this.audio.keyChime({ x: t.x, y: t.y + 0.3, z: t.z }); }
   }
 
   // ---------- Jagdphasen: rote Lichter, er sucht gezielt in deiner Nähe ----------
@@ -693,7 +775,13 @@ class Game {
     }));
     const bindRange = (id, key, apply) => $(id).addEventListener('input', (e) => { settings[key] = parseFloat(e.target.value); saveSettings(); apply && apply(); this._syncSettingsUI(); });
     bindRange('#set-volume', 'volume', () => this.audio.setVolume(settings.volume));
-    bindRange('#set-sens', 'sensitivity');
+    bindRange('#set-sens-touch', 'sensTouch');
+    bindRange('#set-sens-mouse', 'sensMouse');
+    $('#pause-sens').addEventListener('input', (e) => {
+      settings[this.input.mode === 'touch' ? 'sensTouch' : 'sensMouse'] = parseFloat(e.target.value); saveSettings(); this._syncSettingsUI();
+    });
+    on('#btn-patch', () => this.ui.show('screen-patch'));
+    $$('.version').forEach((el) => { el.textContent = `v${VERSION}`; });
     const bindCheck = (id, key, apply) => $(id).addEventListener('change', (e) => { settings[key] = e.target.checked; saveSettings(); apply && apply(); });
     bindCheck('#set-reduce', 'reduceScares', () => { this.audio.scareScale = settings.reduceScares ? 0.55 : 1; });
     bindCheck('#set-invert', 'invertY');
@@ -706,7 +794,11 @@ class Game {
     $$('#set-quality button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === settings.quality)));
     $('#set-quality-note').textContent = settings.quality === 'auto' ? `Automatisch: aktuell ${({ low: 'Niedrig', medium: 'Mittel', high: 'Hoch' })[this.qualityName]}` : '';
     $('#set-volume').value = settings.volume; $('#set-volume-v').textContent = `${Math.round(settings.volume * 100)} %`;
-    $('#set-sens').value = settings.sensitivity; $('#set-sens-v').textContent = `${settings.sensitivity.toFixed(1)}×`;
+    $('#set-sens-touch').value = settings.sensTouch; $('#set-sens-touch-v').textContent = `${settings.sensTouch.toFixed(1)}×`;
+    $('#set-sens-mouse').value = settings.sensMouse; $('#set-sens-mouse-v').textContent = `${settings.sensMouse.toFixed(1)}×`;
+    const ps = this.input.mode === 'touch' ? settings.sensTouch : settings.sensMouse;
+    $('#pause-sens').value = ps; $('#pause-sens-v').textContent = `${ps.toFixed(1)}×`;
+    $('#pause-sens-label').textContent = this.input.mode === 'touch' ? 'Drehempfindlichkeit (Touch)' : 'Drehempfindlichkeit (Maus)';
     $('#set-reduce').checked = settings.reduceScares;
     $('#set-invert').checked = settings.invertY;
     $('#set-fps').checked = settings.showFps;

@@ -152,7 +152,6 @@ export class Ghost {
     const pl = this.g.player, world = this.g.world;
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
     let range = (pl.flashlightOn ? 19 : 10) * (1 + this.g.keysCollected * 0.06) * (this.g.hunting ? 1.2 : 1);
-    if (pl.crouching) range *= 0.65;
     if (pl.sprinting) range *= 1.15;
     if (this.g.finalPhase) range *= 1.25;
     this.visT -= dt;

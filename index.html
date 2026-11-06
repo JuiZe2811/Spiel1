@@ -30,7 +30,8 @@
   <symbol id="i-light" viewBox="0 0 24 24"><path d="M4 9h7l6-4v14l-6-4H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19.5 8.5l2-1.5M20 12h2.5M19.5 15.5l2 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-cross" viewBox="0 0 24 24"><path d="M12 2v20M6 8h12" stroke="currentColor" stroke-width="3" stroke-linecap="square" fill="none"/></symbol>
   <symbol id="i-run" viewBox="0 0 24 24"><circle cx="15" cy="4" r="2" fill="currentColor"/><path d="M8 21l3-6 3 2v5M5 12l3-4h5l3 4 3 1M11 15l1-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-crouch" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" fill="currentColor"/><path d="M8 21v-5l4-3 3 3-2 5M12 13l-1-5h3l3 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-flare" viewBox="0 0 24 24"><path d="M5 20l9-9" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="M15.5 9.5c-1.6-1.8-.6-4.2 1.4-5.5-.2 1.6.6 2.4 1.7 2.6 1.6.3 2.4 2.2 1.2 3.6-1.1 1.3-3.2 1.1-4.3-.7z" fill="currentColor"/></symbol>
+  <symbol id="i-hint" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="currentColor"/></symbol>
   <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5a1.5 1.5 0 013 0v6M11 11V3.5a1.5 1.5 0 013 0V11M14 11V5a1.5 1.5 0 013 0v8c0 4-2.5 7-6 7s-5-2-6.5-5L3 11.5a1.4 1.4 0 012.3-1.5L8 13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
@@ -45,8 +46,13 @@
   <div id="crosshair"></div>
   <div id="hud-prompt"></div>
   <div id="hud-stamina"><i></i></div>
-  <div id="hud-cross" class="desk-only"><svg><use href="#i-cross"/></svg><span>Q</span><b id="hud-cross-txt">BEREIT</b></div>
-  <div id="hud-hints" class="desk-only">WASD gehen · Maus umsehen · Shift rennen · C/Strg ducken · E interagieren · F Licht · Q Kruzifix · Esc Pause</div>
+  <div id="hud-hint" hidden><svg id="hud-hint-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 L34 32 L20 24 L6 32 Z"/></svg><span id="hud-hint-dist">0 m</span></div>
+  <div id="hud-inv" class="desk-only">
+    <div id="hud-cross" class="inv"><svg><use href="#i-cross"/></svg><span>Q</span><b id="hud-cross-txt">BEREIT</b></div>
+    <div id="hud-flares" class="inv"><svg><use href="#i-flare"/></svg><span>G</span><b>0</b></div>
+    <div id="hud-hintkey" class="inv"><svg><use href="#i-hint"/></svg><span>H</span><b>BEREIT</b></div>
+  </div>
+  <div id="hud-hints" class="desk-only">WASD gehen · Maus umsehen · Shift rennen · E interagieren · F Licht · Q Kruzifix · G Bengalo · H Hinweis · Esc Pause</div>
   <div id="hud-lock" hidden>Klicke ins Bild, um dich mit der Maus umzusehen</div>
   <div id="hud-fps" hidden></div>
 </div>
@@ -54,13 +60,14 @@
 <div id="touch" hidden>
   <div id="joy-zone"></div>
   <div id="look-zone"></div>
-  <div id="joy-base"><div id="joy-knob"></div></div>
+  <div id="joy-base"><i class="joy-ring"></i><div id="joy-knob"></div></div>
   <button type="button" class="tbtn tbtn-wide" data-act="interact" id="t-interact" hidden>INTERAGIEREN</button>
-  <div class="tbtn-grid">
-    <button type="button" class="tbtn" data-act="light" id="t-light"><svg><use href="#i-light"/></svg><span>Licht</span></button>
-    <button type="button" class="tbtn tbtn-cross" data-act="cross" id="t-cross"><svg><use href="#i-cross"/></svg><span>Kruzifix</span><b class="cd"></b></button>
-    <button type="button" class="tbtn" data-act="crouch" id="t-crouch"><svg><use href="#i-crouch"/></svg><span>Ducken</span></button>
-    <button type="button" class="tbtn" data-act="sprint" id="t-sprint"><svg><use href="#i-run"/></svg><span>Sprint</span></button>
+  <div class="tcluster">
+    <button type="button" class="tbtn tbtn-main" data-act="sprint" id="t-sprint" aria-label="Sprint umschalten"><svg><use href="#i-run"/></svg><span>Sprint</span></button>
+    <button type="button" class="tbtn arc a1" data-act="light" id="t-light" aria-label="Taschenlampe"><svg><use href="#i-light"/></svg><span>Licht</span></button>
+    <button type="button" class="tbtn arc a2 tbtn-cross has-ring" data-act="cross" id="t-cross" aria-label="Kruzifix"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="100"/></svg><svg><use href="#i-cross"/></svg><span>Kreuz</span><b class="cd"></b></button>
+    <button type="button" class="tbtn arc a3" data-act="flare" id="t-flare" aria-label="Bengalo werfen"><svg><use href="#i-flare"/></svg><span>Bengalo</span><b class="badge">0</b></button>
+    <button type="button" class="tbtn arc a4 has-ring" data-act="hint" id="t-hint" aria-label="Hinweis zum nächsten Schlüssel"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="100"/></svg><svg><use href="#i-hint"/></svg><span>Hinweis</span></button>
   </div>
 </div>
 
@@ -80,10 +87,12 @@
       <button type="button" id="btn-face" class="mbtn with-thumb"><img class="face-thumb" alt=""><span>GEISTERGESICHT HOCHLADEN</span></button>
       <button type="button" id="btn-settings" class="mbtn">EINSTELLUNGEN</button>
       <button type="button" id="btn-controls" class="mbtn">STEUERUNG</button>
+      <button type="button" id="btn-patch" class="mbtn">PATCH NOTES <small>Was ist neu?</small></button>
       <button type="button" id="btn-fullscreen" class="mbtn" hidden>VOLLBILDMODUS</button>
     </nav>
     <p id="ios-hint" class="fine" hidden>iPhone-Tipp: Safari erlaubt kein echtes Vollbild. Über <em>Teilen → Zum Home-Bildschirm</em> startet das Spiel ohne Browserleisten.</p>
     <p class="fine">Kopfhörer empfohlen. Enthält plötzliche Schreckeffekte und laute Geräusche.</p>
+    <p class="credit"><span class="version">v1.2.0</span> · made by Julian</p>
   </div>
 </section>
 
@@ -92,6 +101,8 @@
   <div class="panel narrow">
     <h2>Pause</h2>
     <p id="pause-note" class="note" hidden>Das Spiel wurde automatisch angehalten. Der Geist wartet, bis du weiterspielst.</p>
+    <label class="field" for="pause-sens"><span class="label"><span id="pause-sens-label">Drehempfindlichkeit</span> <output id="pause-sens-v"></output></span>
+      <input type="range" id="pause-sens" min="0.2" max="3" step="0.1"></label>
     <div class="menu-list">
       <button type="button" id="btn-resume" class="mbtn primary">WEITERSPIELEN</button>
       <button type="button" id="btn-p-settings" class="mbtn">EINSTELLUNGEN</button>
@@ -114,8 +125,10 @@
     </div>
     <label class="field" for="set-volume"><span class="label">Lautstärke <output id="set-volume-v"></output></span>
       <input type="range" id="set-volume" min="0" max="1" step="0.05"></label>
-    <label class="field" for="set-sens"><span class="label">Kamera-Empfindlichkeit <output id="set-sens-v"></output></span>
-      <input type="range" id="set-sens" min="0.3" max="2.5" step="0.1"></label>
+    <label class="field" for="set-sens-touch"><span class="label">Drehempfindlichkeit Touch <output id="set-sens-touch-v"></output></span>
+      <input type="range" id="set-sens-touch" min="0.2" max="3" step="0.1"></label>
+    <label class="field" for="set-sens-mouse"><span class="label">Drehempfindlichkeit Maus <output id="set-sens-mouse-v"></output></span>
+      <input type="range" id="set-sens-mouse" min="0.2" max="3" step="0.1"></label>
     <label class="check"><input type="checkbox" id="set-reduce"><span>Intensive Schreckeffekte reduzieren</span></label>
     <label class="check"><input type="checkbox" id="set-invert"><span>Vertikale Kamera umkehren</span></label>
     <label class="check"><input type="checkbox" id="set-fs"><span>Auf Smartphones beim Start Vollbild versuchen</span></label>
@@ -135,10 +148,11 @@
           <dt>Linker Daumen</dt><dd>Virtueller Joystick: laufen</dd>
           <dt>Rechte Hälfte wischen</dt><dd>Umsehen</dd>
           <dt>Licht</dt><dd>Taschenlampe an/aus</dd>
-          <dt>Kruzifix</dt><dd>4 s Schutz, danach 20 s Abklingzeit</dd>
-          <dt>Sprint</dt><dd>Umschalten, kein Festhalten nötig</dd>
-          <dt>Ducken</dt><dd>Umschalten: leiser und schwerer zu sehen</dd>
-          <dt>Interagieren</dt><dd>Erscheint bei Türen und Schlüsseln</dd>
+          <dt>Sprint</dt><dd>Großer Knopf unten rechts, umschaltbar</dd>
+          <dt>Kreuz</dt><dd>Kruzifix: 4 s Schutz, 20 s Abklingzeit</dd>
+          <dt>Bengalo</dt><dd>Wirft einen roten Bengalo in Blickrichtung</dd>
+          <dt>Hinweis</dt><dd>Zeigt 8 s lang den Weg zum nächsten Schlüssel</dd>
+          <dt>Interagieren</dt><dd>Erscheint bei Türen, Schlüsseln und Bengalos</dd>
         </dl>
       </div>
       <div>
@@ -147,15 +161,16 @@
           <dt>W A S D</dt><dd>Bewegen</dd>
           <dt>Maus</dt><dd>Umsehen (ins Bild klicken)</dd>
           <dt>Shift</dt><dd>Rennen</dd>
-          <dt>Strg oder C</dt><dd>Ducken (Strg+W schließt im Browser den Tab — C ist sicherer)</dd>
           <dt>E</dt><dd>Interagieren</dd>
           <dt>F</dt><dd>Taschenlampe</dd>
           <dt>Q</dt><dd>Kruzifix</dd>
+          <dt>G</dt><dd>Bengalo werfen</dd>
+          <dt>H</dt><dd>Hinweis zum nächsten Schlüssel</dd>
           <dt>Esc</dt><dd>Pause</dd>
         </dl>
       </div>
     </div>
-    <p class="note">Rennen und Türen sind laut. Der Geist hört Schritte, sieht deine Taschenlampe und sucht dort, wo er dich zuletzt gesehen hat. Hinter geschlossenen Türen bist du für ihn unsichtbar.</p>
+    <p class="note">Rennen und Türen sind laut. Der Geist hört Schritte, sieht deine Taschenlampe (schalte sie aus, um unauffälliger zu sein) und sucht dort, wo er dich zuletzt gesehen hat. Hinter geschlossenen Türen bist du für ihn unsichtbar.</p>
     <button type="button" class="mbtn btn-back">ZURÜCK</button>
   </div>
 </section>
@@ -179,6 +194,36 @@
         <button type="button" class="mbtn btn-back">ZURÜCK</button>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- Patch Notes -->
+<section id="screen-patch" class="screen" hidden>
+  <div class="panel wide">
+    <h2>Patch Notes</h2>
+    <article class="patch">
+      <h3>v1.2.0 <small>Bengalos &amp; mehr Grusel</small></h3>
+      <ul>
+        <li><b>Rote Bengalos:</b> 7 Stück liegen leuchtend im Gebäude. Einsammeln (max. 3) und werfen: Sie prallen ab und leuchten 30 Sekunden alles rot aus.</li>
+        <li><b>Schlüssel-Hinweis:</b> Neue Taste zeigt 8 Sekunden lang Richtung, Entfernung und eine goldene Lichtsäule zum nächsten Schlüssel (30 s Abklingzeit). Schlüssel in der Nähe klingeln leise und leuchten stärker.</li>
+        <li><b>Die Welt lebt:</b> Blutige Schriften und Handabdrücke erscheinen an den Wänden, sobald du wegsiehst. Türen öffnen sich langsam von selbst, Glühbirnen platzen, Stühle drehen sich zu dir, Gestalten stehen in der Ferne, eine Spieluhr spielt, Schritte über der Decke.</li>
+        <li><b>Neue Touch-Steuerung:</b> Großer Sprint-Knopf, die anderen Tasten im Bogen um den Daumen, Abklingzeit als Ring, Bengalo-Zähler.</li>
+        <li><b>Drehempfindlichkeit</b> getrennt für Touch und Maus, auch direkt im Pausenmenü einstellbar.</li>
+        <li>Ducken wurde entfernt.</li>
+        <li>Versionsnummer und Patch Notes im Menü.</li>
+      </ul>
+      <h3>v1.1.0 <small>Mehr Spannung</small></h3>
+      <ul>
+        <li>10 neue Schockmomente: Stromausfall, Schritte von hinten, Gestalt hinter dir, Geist an der Decke, Hämmern, Telefon, Kichern, Gesichtsblitze, Türkette, ferner Schrei.</li>
+        <li>Jagdphasen mit roten Lichtern und Sirene.</li>
+        <li>Schocks häufiger, der Geist wird mit jedem Schlüssel stärker.</li>
+      </ul>
+      <h3>v1.0.0 <small>Erste Version</small></h3>
+      <ul>
+        <li>3D-Gebäude, Geist-KI, fünf Schlüssel, Taschenlampe, Kruzifix, eigenes Geistergesicht, Touch- und PC-Steuerung.</li>
+      </ul>
+    </article>
+    <button type="button" class="mbtn btn-back">ZURÜCK</button>
   </div>
 </section>
 

@@ -5,12 +5,19 @@ const KEY = 'f5s_settings_v1';
 export const settings = Object.assign({
   quality: 'auto',       // auto | low | medium | high
   volume: 0.8,
-  sensitivity: 1.0,
+  sensTouch: 1.0,
+  sensMouse: 1.0,
   reduceScares: false,
   invertY: false,
   showFps: false,
   autoFullscreen: true,
 }, store.get(KEY, {}));
+
+// Frühere gemeinsame Empfindlichkeit übernehmen
+if (typeof settings.sensitivity === 'number') {
+  if (!store.get(KEY, {}).sensTouch) settings.sensTouch = settings.sensMouse = settings.sensitivity;
+  settings.sensitivity = undefined;
+}
 
 export function saveSettings() { store.set(KEY, settings); }
 

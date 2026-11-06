@@ -604,6 +604,7 @@ export class World {
       if (L.t <= 0) { L.flick = Math.random() < 0.35 + near * 0.6 ? 0.25 + Math.random() * 0.6 : 0; L.t = 1 + Math.random() * 4 * (1 - near); }
       let k = 1;
       if (L.flick > 0) { L.flick -= dt; k = Math.random() < 0.5 ? 0.05 : 1; }
+      if (L.dead > 0) { L.dead -= dt; k = 0; }
       if (this.blackout) k = 0;
       else if (this.huntFlicker && Math.random() < 0.25) k = Math.random() * 0.3;
       L.light.intensity = L.base * k;
@@ -619,6 +620,7 @@ export class World {
 
   resetDynamic() {
     for (const d of this.doors) { d.open = false; d.angle = d.target = 0; d.pivot.rotation.y = 0; }
+    for (const L of this.lights) L.dead = 0;
     for (const c of this.chairs) { c.x = c.home.x; c.z = c.home.z; c.mesh.position.set(c.x, 0, c.z); c.mesh.rotation.set(0, c.home.rot, 0); c.anim = null; }
     const e = this.exit;
     e.unlocked = false; e.opening = 0; e.outside.visible = false; e.lamp.material.color.set(0xff2200);
