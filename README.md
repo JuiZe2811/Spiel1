@@ -1,6 +1,6 @@
 # Die fünf Schlüssel
 
-**Version 1.4.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+**Version 1.5.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
 
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
@@ -57,7 +57,17 @@ Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Kn
 - **Kruzifix:** 4 Sekunden Schutz, danach 20 Sekunden Abklingzeit. Ist der Geist in der Nähe, wird er zurückgedrängt und verliert deine Spur.
 - **Taschenlampe:** Ohne Batterie, flackert, wenn der echte Geist nahe ist. Eingeschaltet sieht der Geist dich aus größerer Entfernung.
 - **Geist-KI:** Zustände *Umherwandern*, *Geräusch untersuchen*, *Verfolgen*, *Letzte Position absuchen*, *Zurückweichen*. Er sieht nur mit Sichtlinie (keine Sicht durch Wände, geschlossene Türen oder hohe Regale), hört Schritte (Rennen ist laut) und Türen, öffnet Türen auf seinem Weg und navigiert per A*-Wegfindung um Hindernisse.
-- **Harmlose Schreckmomente:** Etwa alle 10–26 Sekunden (zufällig, mit jedem Schlüssel häufiger, manchmal zwei direkt hintereinander) eines von zwanzig Ereignissen: Gesicht vor der Kamera, Gestalt hinter einer offenen Tür, Schatten im Flur, Erscheinung im Taschenlampen-Flackern, zuschlagende Tür, heranstürmender Geist, Gesicht im Fenster, Flüstern hinter dir, schwebende Erscheinung, sich bewegender Stuhl, Stromausfall mit Gestalt direkt vor dir, Schritte, die sich von hinten nähern, Gestalt, die hinter dir steht, Geist kopfüber an der Decke, Hämmern in der Wand, klingelndes Telefon (lockt auch den Geist an), Kichern, unterschwellige Gesichtsblitze, Kette zuschlagender Türen, ferner Schrei. Sie benutzen dasselbe Modell und Gesicht wie der echte Geist, können aber niemals töten, nichts wegnehmen und das Kruzifix nicht verbrauchen.
+- **Harmlose Schreckmomente:** Etwa alle 10–26 Sekunden (zufällig, mit jedem Schlüssel häufiger, manchmal zwei direkt hintereinander). Der echte Geist jagt nur; die Schocks kommen von anderen Wesen und aus der Umgebung:
+  - **Schattenmann** (2,7 m groß, weiß glühende Augen): lugt aus offenen Türen, geht durch Räume, steht nach einem Stromausfall vor dir
+  - **Krabbler** (auf allen Vieren, rote Augen): rennt auf dich zu, huscht über den Boden oder kopfüber über die Decke
+  - **Mädchen**: steht zur Wand gedreht, weint, dreht den Kopf ganz herum
+  - **Porzellanpuppe**: sitzt plötzlich hinter dir, Spieluhr, dreht den Kopf
+  - **Schaufensterpuppe**: rückt näher, sobald du wegsiehst
+  - rote **Augen in der Dunkelheit**, schwarze **Arme aus der Wand**, **fliegende Kisten**, drei verrauschte **Fratzen** als Bildschirm-Schock (selten dein hochgeladenes Gesicht), Erscheinung im Taschenlampen-Flackern, Gestalt hinter dir
+  - Umgebung: zuschlagende Türen und Türketten, Gesicht im Fenster, Flüstern, Schritte von hinten, Hämmern in der Wand, Telefon, Kichern, ferner Schrei, sich bewegende Stühle
+  - Nur ganz selten ein kurzer Blick auf den echten Geist in der Ferne.
+
+  Keines davon kann töten, etwas wegnehmen oder das Kruzifix verbrauchen.
 - **Jagdphasen:** Etwa alle 1–1,5 Minuten (und direkt nach dem 2. und 4. Schlüssel) werden die Lichter rot und eine Sirene dröhnt. 14–21 Sekunden lang sucht der Geist gezielt in deiner ungefähren Nähe und ist schneller. Licht aus, langsam gehen und geschlossene Türen retten dich.
 - **Eskalation:** Mit jedem Schlüssel wird der Geist etwas schneller und sieht weiter.
 

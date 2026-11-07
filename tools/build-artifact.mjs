@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
-const order = ['util', 'version', 'settings', 'map', 'textures', 'world', 'face', 'ghost', 'player', 'scares', 'ambient', 'flares', 'audio', 'input', 'ui', 'main'];
+const order = ['util', 'version', 'settings', 'map', 'textures', 'world', 'face', 'ghost', 'entities', 'player', 'scares', 'ambient', 'flares', 'audio', 'input', 'ui', 'main'];
 let js = "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js';\n";
 for (const name of order) {
   let src = read(`js/${name}.js`);

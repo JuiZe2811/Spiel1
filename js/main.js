@@ -11,6 +11,7 @@ import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Flares, MAX_FLARES } from './flares.js';
 import { AmbientDirector } from './ambient.js';
+import { ShadowMan } from './entities.js';
 import { VERSION } from './version.js';
 import { $, $$, store, rand, clamp, shuffle, angleDiff } from './util.js';
 
@@ -58,7 +59,7 @@ class Game {
     this.scares = new ScareDirector(this, new GhostModel(gm), new GhostModel(gm, true));
     this._buildKeys();
     this.flares = new Flares(this);
-    this.ambient = new AmbientDirector(this, new GhostModel(gm, true));
+    this.ambient = new AmbientDirector(this, new ShadowMan(this.tex.glow));
     this._buildCompass();
     this.hintT = 0; this.hintCd = 0; this.chimeT = 0;
 

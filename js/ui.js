@@ -106,8 +106,9 @@ export class UI {
   threat(v) { this._set('threat', this.el.threat, 'opacity', v.toFixed(2)); }
   fps(t) { this._set('fps', this.el.fps, 'text', t); }
 
-  showScareFace(strength = 1) {
+  showScareFace(strength = 1, src = null) {
     const el = this.el.scare;
+    this.el.scareImg.src = src || this.g.face.dataURL;
     el.style.setProperty('--s', strength);
     el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   }

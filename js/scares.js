@@ -1,6 +1,7 @@
 // Harmlose Schreckmomente. Sie können niemals töten, nichts entfernen und das Kruzifix nicht verbrauchen.
 import * as THREE from '../vendor/three.module.min.js';
 import { rand, choice } from './util.js';
+import { ShadowMan, Crawler, Child, Doll, Mannequin, EyePairs, WallHands, makeScareFaces } from './entities.js';
 
 export class ScareDirector {
   constructor(game, phantom, shadow) {
@@ -13,6 +14,16 @@ export class ScareDirector {
       new THREE.MeshBasicMaterial({ map: game.face.texture, transparent: true, opacity: 0.8, color: 0x9aa4aa }));
     this.winFace.visible = false;
     game.scene.add(this.winFace);
+    // Andere Wesen – nicht der Geist
+    const glow = game.tex.glow;
+    this.shadowMan = new ShadowMan(glow); this.crawler = new Crawler(glow); this.child = new Child();
+    this.doll = new Doll(); this.mannequinE = new Mannequin(); this.eyes = new EyePairs(glow); this.hands = new WallHands();
+    this.entities = [this.shadowMan, this.crawler, this.child, this.doll, this.mannequinE];
+    for (const e of this.entities) game.scene.add(e.group);
+    game.scene.add(this.eyes.group, this.hands.group);
+    this.box = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), game.world.mats.crate);
+    this.box.visible = false; game.scene.add(this.box);
+    this.faces = makeScareFaces();
     this.recent = [];
     this.reset();
   }
@@ -29,6 +40,10 @@ export class ScareDirector {
     this.g.flickerOverride = null;
     this.g.world.blackout = false;
     this.phantom.group.rotation.set(0, 0, 0);
+    if (this.entities) {
+      for (const e of this.entities) { e.hide(); e.group.rotation.set(0, 0, 0); e.group.position.y = 0; }
+      this.eyes.hide(); this.hands.group.visible = false; this.box.visible = false; this.box.userData.hit = false;
+    }
     this.g.ui.hideScareFace();
   }
 
@@ -59,12 +74,22 @@ export class ScareDirector {
   }
 
   trigger(name) {
-    const all = ['faceFlash', 'doorFigure', 'shadowRun', 'flickerReveal', 'doorSlam', 'rushGhost', 'windowFace', 'whisper', 'floatAcross', 'furnitureMove',
-      'blackout', 'stepsBehind', 'behindYou', 'ceilingHang', 'banging', 'phoneRing', 'giggle', 'subliminal', 'doorChain', 'distantScream'];
-    const options = all.filter((n) => !this.recent.includes(n));
-    const pick = name || choice(options);
-    this.recent.push(pick); if (this.recent.length > 8) this.recent.shift();
+    const weights = {
+      shadowPeek: 3, shadowWalk: 3, crawlerRush: 3, crawlerCross: 2, crawlerCeiling: 2, childCorner: 3, dollAppear: 2, mannequin: 2,
+      eyesInDark: 3, wallHands: 2, objectThrow: 2, blackout: 2, flickerReveal: 2, behindYou: 2, faceFlash: 2, subliminal: 1,
+      doorSlam: 2, windowFace: 1, whisper: 1, furnitureMove: 2, stepsBehind: 2, banging: 2, phoneRing: 1, giggle: 1, doorChain: 1,
+      distantScream: 1, ghostGlimpse: 0.5,
+    };
+    let pick = name;
+    if (!pick) {
+      const opts = Object.entries(weights).filter(([n]) => !this.recent.includes(n));
+      let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
+      pick = opts[0][0];
+      for (const [n, w] of opts) { r -= w; if (r <= 0) { pick = n; break; } }
+    }
+    this.recent.push(pick); if (this.recent.length > 10) this.recent.shift();
     this.timer = 0; this.next = this.interval();
+    this.hideAll();
     const ev = this[pick]();
     if (ev) { ev.t = 0; ev.name = pick; this.active = ev; }
   }
@@ -103,83 +128,7 @@ export class ScareDirector {
   }
   facePos(model) { const p = model.group.position; return { x: p.x, y: 1.6, z: p.z }; }
 
-  // ---------- Die zehn Ereignisse ----------
-  faceFlash() {
-    const g = this.g, red = g.settings.reduceScares;
-    g.ui.showScareFace(red ? 0.55 : 1);
-    g.audio.stinger(red ? 0.5 : 1);
-    g.shake(red ? 0.1 : 0.35);
-    return { step: (dt, t) => t > (red ? 0.25 : 0.45) };
-  }
-
-  doorFigure() {
-    const P = this.playerInfo(), w = this.g.world;
-    const doors = w.doors.filter((d) => d.open && Math.hypot(d.x - P.x, d.z - P.z) < 13 && Math.hypot(d.x - P.x, d.z - P.z) > 4
-      && this.inView(d.x, d.z, 0.55) && w.lineOfSight(P.x, P.z, d.x, d.z));
-    let pos;
-    if (doors.length) {
-      const d = choice(doors);
-      const dx = d.x - P.x, dz = d.z - P.z, l = Math.hypot(dx, dz);
-      pos = { x: d.x + dx / l * 1.3, z: d.z + dz / l * 1.3 };
-      if (!w.isWalkable(w.cell(pos.x), w.cell(pos.z))) pos = { x: d.x, z: d.z };
-    } else {
-      pos = this.spotInView(6, 13, 0.25);
-      if (!pos) return this.whisper();
-    }
-    this.place(this.phantom, pos.x, pos.z);
-    this.g.audio.moan(this.facePos(this.phantom), 0.25);
-    return {
-      step: (dt, t) => {
-        this.phantom.animate(dt, 0, 0);
-        const near = Math.hypot(pos.x - this.g.player.pos.x, pos.z - this.g.player.pos.z) < 4.5;
-        if (near || t > 3.2) { this.g.audio.whoosh(this.facePos(this.phantom)); return true; }
-        return false;
-      },
-    };
-  }
-
-  shadowRun() {
-    const P = this.playerInfo(), w = this.g.world;
-    const s = this.spotInView(5, 12, 0.2);
-    if (!s) return this.doorSlam();
-    const rx = -s.dz, rz = s.dx;
-    const ext = (sign) => { let e = 0; while (e < 5 && w.isWalkable(w.cell(s.x + rx * sign * (e + 0.4)), w.cell(s.z + rz * sign * (e + 0.4)))) e += 0.4; return e; };
-    const a = ext(-1), b = ext(1);
-    if (a + b < 2) return this.whisper();
-    const start = { x: s.x - rx * a, z: s.z - rz * a }, end = { x: s.x + rx * b, z: s.z + rz * b };
-    const len = a + b, dur = len / 6.5;
-    this.place(this.shadow, start.x, start.z, false);
-    this.shadow.group.rotation.y = Math.atan2(rx, rz);
-    this.g.audio.runSteps({ x: s.x, y: 0.5, z: s.z }, Math.ceil(dur / 0.15));
-    return {
-      step: (dt, t) => {
-        const k = Math.min(1, t / dur);
-        this.shadow.group.position.set(start.x + (end.x - start.x) * k, 0, start.z + (end.z - start.z) * k);
-        this.shadow.animate(dt, 0.2, 6);
-        return t > dur;
-      },
-    };
-  }
-
-  flickerReveal() {
-    const g = this.g;
-    const s = this.spotInView(2.8, 4.5, 0.12);
-    return {
-      step: (dt, t) => {
-        // Muster: aus/an/aus ... Figur nur während eines kurzen Lichtblitzes sichtbar
-        const on = t < 0.3 ? Math.random() > 0.5 : t < 0.7 ? false : t < 1.05 ? true : t < 1.35 ? false : t < 1.6 ? Math.random() > 0.6 : true;
-        g.flickerOverride = t < 1.6 ? (on ? 1 : 0.02) : null;
-        if (s) {
-          const vis = t >= 0.7 && t < 1.05;
-          if (vis && !this.phantom.group.visible) { this.place(this.phantom, s.x, s.z); g.audio.stinger(g.settings.reduceScares ? 0.35 : 0.7); }
-          this.phantom.group.visible = vis;
-          if (vis) this.phantom.animate(dt, 1, 0);
-        }
-        return t > 1.7;
-      },
-    };
-  }
-
+  // ---------- Umgebung (unverändert) ----------
   doorSlam() {
     const P = this.playerInfo(), w = this.g.world;
     const doors = w.doors.filter((d) => d.open && Math.hypot(d.x - P.x, d.z - P.z) < 15 && Math.hypot(d.x - P.x, d.z - P.z) > 2);
@@ -195,34 +144,6 @@ export class ScareDirector {
     this.g.audio.doorSlam(pos);
     this.g.shake(0.15);
     return { step: (dt, t) => t > 0.6 };
-  }
-
-  rushGhost() {
-    const g = this.g, red = g.settings.reduceScares;
-    const s = this.spotInView(8, 12, 0.15);
-    if (!s) return this.faceFlash();
-    this.place(this.phantom, s.x, s.z);
-    g.audio.moan(this.facePos(this.phantom), 0.5);
-    const stopAt = red ? 3.2 : 1.4;
-    return {
-      step: (dt, t) => {
-        const p = this.phantom.group.position, pl = g.player.pos;
-        const dx = pl.x - p.x, dz = pl.z - p.z, d = Math.hypot(dx, dz);
-        if (t > 0.5) {
-          const sp = 9 * dt;
-          p.x += dx / d * sp; p.z += dz / d * sp;
-          this.phantom.group.rotation.y = Math.atan2(dx, dz);
-          this.phantom.animate(dt, 1, 9);
-        } else this.phantom.animate(dt, 0.3, 0);
-        if (d < stopAt || t > 3) {
-          g.audio.stinger(red ? 0.45 : 1);
-          g.ui.flash(red ? 0.15 : 0.45);
-          g.shake(red ? 0.1 : 0.3);
-          return true;
-        }
-        return false;
-      },
-    };
   }
 
   windowFace() {
@@ -252,30 +173,6 @@ export class ScareDirector {
     return { step: (dt, t) => t > 2 };
   }
 
-  floatAcross() {
-    const w = this.g.world;
-    const s = this.spotInView(4, 9, 0.2);
-    if (!s) return this.whisper();
-    const rx = -s.dz, rz = s.dx;
-    const ext = (sign) => { let e = 0; while (e < 4.5 && w.isOpen(w.cell(s.x + rx * sign * (e + 0.4)), w.cell(s.z + rz * sign * (e + 0.4)))) e += 0.4; return e; };
-    const a = ext(-1), b = ext(1);
-    if (a + b < 2) return this.whisper();
-    const dir = Math.random() < 0.5 ? 1 : -1;
-    const start = { x: s.x - rx * a * dir, z: s.z - rz * a * dir }, end = { x: s.x + rx * b * dir, z: s.z + rz * b * dir };
-    const dur = (a + b) / 4;
-    this.place(this.phantom, start.x, start.z, false);
-    this.phantom.group.rotation.y = Math.atan2(rx * dir, rz * dir);
-    this.g.audio.moan({ x: s.x, y: 1.8, z: s.z }, 0.35);
-    return {
-      step: (dt, t) => {
-        const k = Math.min(1, t / dur);
-        this.phantom.group.position.set(start.x + (end.x - start.x) * k, 0.35 + Math.sin(k * Math.PI) * 0.2, start.z + (end.z - start.z) * k);
-        this.phantom.animate(dt, 0.6, 4);
-        return t > dur;
-      },
-    };
-  }
-
   furnitureMove() {
     const P = this.playerInfo();
     const chairs = this.g.world.chairs.filter((c) => Math.hypot(c.x - P.x, c.z - P.z) < 11 && Math.hypot(c.x - P.x, c.z - P.z) > 2.5)
@@ -300,28 +197,6 @@ export class ScareDirector {
     };
   }
 
-  // ---------- Neue Ereignisse ----------
-  blackout() {
-    const g = this.g, w = g.world;
-    w.blackout = true;
-    g.audio.bang({ x: g.player.pos.x, y: 3, z: g.player.pos.z }, 0.5);
-    let spot = null, shown = false;
-    return {
-      step: (dt, t) => {
-        g.flickerOverride = t < 2.6 ? 0 : (t < 2.9 ? (Math.random() < 0.5 ? 1 : 0) : null);
-        if (t > 0.6 && t < 0.65) g.audio.whisper(null);
-        if (!shown && t > 2.6) {
-          shown = true; w.blackout = false;
-          spot = this.spotInView(1.6, 2.6, 0.08);
-          if (spot) { this.place(this.phantom, spot.x, spot.z); g.audio.stinger(g.settings.reduceScares ? 0.5 : 1); g.shake(0.3); }
-        }
-        if (this.phantom.group.visible) this.phantom.animate(dt, 1, 0);
-        if (t > 3.15) this.phantom.group.visible = false;
-        return t > 3.3;
-      },
-    };
-  }
-
   stepsBehind() {
     const P = this.playerInfo(), pts = [];
     for (let i = 0; i < 9; i++) {
@@ -333,53 +208,6 @@ export class ScareDirector {
       step: (dt, t) => {
         if (t > 3.1 && t < 3.15) { this.g.audio.whisper({ x: P.x - P.fx * 0.6, y: 1.6, z: P.z - P.fz * 0.6 }); }
         return t > 4.6;
-      },
-    };
-  }
-
-  behindYou() {
-    const P = this.playerInfo(), w = this.g.world;
-    const x = P.x - P.fx * 2.2, z = P.z - P.fz * 2.2;
-    if (!w.isOpen(w.cell(x), w.cell(z)) || !w.lineOfSight(P.x, P.z, x, z)) return this.stepsBehind();
-    this.place(this.phantom, x, z);
-    this.g.audio.breath();
-    this.g.audio.whisper({ x, y: 1.6, z });
-    this.g.ui.message('… hinter dir …', 2);
-    let seen = 0;
-    return {
-      step: (dt, t) => {
-        this.place(this.phantom, x, z);
-        this.phantom.animate(dt, 0.8, 0);
-        if (!seen && this.inView(x, z, 0.55)) {
-          seen = t;
-          this.g.audio.stinger(this.g.settings.reduceScares ? 0.5 : 1);
-          this.g.shake(0.35);
-        }
-        if (seen) return t - seen > 0.45;   // kurz sichtbar lassen, dann weg
-        return t > 7;
-      },
-    };
-  }
-
-  ceilingHang() {
-    const s = this.spotInView(3.5, 7, 0.15);
-    if (!s) return this.giggle();
-    const g = this.g;
-    this.place(this.phantom, s.x, s.z);
-    const ry = this.phantom.group.rotation.y;
-    this.phantom.group.rotation.set(Math.PI, ry + Math.PI, 0, 'YXZ');
-    this.phantom.group.position.y = 3.05;
-    g.audio.moan({ x: s.x, y: 2.2, z: s.z }, 0.35);
-    let fall = 0;
-    return {
-      step: (dt, t) => {
-        const p = this.phantom.group.position, pl = g.player.pos;
-        this.phantom.animate(dt, 1, 0);
-        const near = Math.hypot(p.x - pl.x, p.z - pl.z) < 2.5;
-        if ((t > 1.8 || near) && !fall) { fall = t; g.audio.stinger(g.settings.reduceScares ? 0.5 : 1); g.shake(0.25); }
-        if (fall) { this.phantom.group.position.y = Math.max(0.2, 3.05 - (t - fall) * 9); }
-        else this.phantom.group.position.y = 3.05 + Math.sin(t * 3) * 0.04;
-        return fall && t - fall > 0.35;
       },
     };
   }
@@ -420,20 +248,6 @@ export class ScareDirector {
     return { step: (dt, t) => t > 1.2 };
   }
 
-  subliminal() {
-    const g = this.g, red = g.settings.reduceScares;
-    const flashes = red ? [0.1] : [0.05, 0.4, 0.62];
-    let i = 0, off = -1;
-    g.audio.whoosh(null);
-    return {
-      step: (dt, t) => {
-        if (i < flashes.length && t >= flashes[i]) { g.ui.showScareFace(red ? 0.35 : 0.6); g.flickerOverride = 0.05; off = t + 0.07; i++; }
-        if (off > 0 && t > off) { g.ui.hideScareFace(); g.flickerOverride = null; off = -1; }
-        return t > 0.9;
-      },
-    };
-  }
-
   doorChain() {
     const P = this.playerInfo(), w = this.g.world;
     const doors = w.doors.slice().sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z)).slice(0, 4);
@@ -455,5 +269,386 @@ export class ScareDirector {
     const P = this.playerInfo(), a = rand(0, Math.PI * 2);
     this.g.audio.distantScream({ x: P.x + Math.cos(a) * 14, y: 1.5, z: P.z + Math.sin(a) * 14 });
     return { step: (dt, t) => t > 1.8 };
+  }
+
+
+  // ======================================================================
+  // Neue Wesen – nichts davon ist der jagende Geist.
+  // ======================================================================
+
+  // Grauenhaftes Gesicht direkt vor der Kamera (verschiedene Fratzen; selten dein hochgeladenes)
+  faceFlash() {
+    const g = this.g, red = g.settings.reduceScares;
+    const faces = [this.faces.grin, this.faces.eyeless, this.faces.screamer];
+    const src = Math.random() < 0.2 ? null : faces[Math.floor(Math.random() * faces.length)];
+    g.ui.showScareFace(red ? 0.55 : 1, src);
+    g.audio.stinger(red ? 0.5 : 1);
+    g.shake(red ? 0.1 : 0.4);
+    return { step: (dt, t) => t > (red ? 0.25 : 0.5) };
+  }
+
+  // Schattenmann lugt aus einer offenen Tür oder steht am Ende des Flurs
+  shadowPeek() {
+    const P = this.playerInfo(), w = this.g.world;
+    const doors = w.doors.filter((d) => d.open && Math.hypot(d.x - P.x, d.z - P.z) < 13 && Math.hypot(d.x - P.x, d.z - P.z) > 4
+      && this.inView(d.x, d.z, 0.55) && w.lineOfSight(P.x, P.z, d.x, d.z));
+    let pos;
+    if (doors.length) {
+      const d = choice(doors), dx = d.x - P.x, dz = d.z - P.z, l = Math.hypot(dx, dz);
+      pos = { x: d.x + dx / l * 1.2, z: d.z + dz / l * 1.2 };
+      if (!w.isWalkable(w.cell(pos.x), w.cell(pos.z))) pos = { x: d.x, z: d.z };
+    } else {
+      pos = this.spotInView(7, 14, 0.25);
+      if (!pos) return this.eyesInDark();
+    }
+    const e = this.shadowMan;
+    e.show(pos.x, pos.z, P.x, P.z); e.setEyes(true);
+    e.group.rotation.z = rand(-0.25, 0.25); // schief geneigt
+    this.g.audio.whisper({ x: pos.x, y: 2.4, z: pos.z });
+    return {
+      step: (dt, t) => {
+        e.animate(dt);
+        const pl = this.g.player, d = Math.hypot(pos.x - pl.pos.x, pos.z - pl.pos.z);
+        const lit = pl.flashlightOn && this.inView(pos.x, pos.z, 0.97);
+        if (d < 5 || t > 4 || (lit && t > 0.8)) { this.g.audio.whoosh({ x: pos.x, y: 2, z: pos.z }); return true; }
+        return false;
+      },
+    };
+  }
+
+  // Schattenmann geht langsam quer durch den Raum, ohne dich zu beachten
+  shadowWalk() {
+    const lane = this.lateralLane(7, 13, 3);
+    if (!lane) return this.whisper();
+    const e = this.shadowMan;
+    e.show(lane.start.x, lane.start.z); e.setEyes(Math.random() < 0.5);
+    e.group.rotation.y = Math.atan2(lane.end.x - lane.start.x, lane.end.z - lane.start.z);
+    const dur = lane.len / 1.3;
+    const pts = []; for (let i = 0; i < Math.ceil(dur / 0.7); i++) pts.push({ x: lane.mid.x, y: 0.2, z: lane.mid.z });
+    this.g.audio.stepsAt(pts, 0.7);
+    return {
+      step: (dt, t) => {
+        const k = Math.min(1, t / dur);
+        e.group.position.set(lane.start.x + (lane.end.x - lane.start.x) * k, 0, lane.start.z + (lane.end.z - lane.start.z) * k);
+        e.animate(dt, 1);
+        return t > dur;
+      },
+    };
+  }
+
+  // Krabbler rennt auf allen Vieren auf dich zu und verschwindet kurz vorher
+  crawlerRush() {
+    const g = this.g, red = g.settings.reduceScares;
+    const s = this.spotInView(8, 13, 0.15);
+    if (!s) return this.faceFlash();
+    const c = this.crawler; c.show(s.x, s.z, g.player.pos.x, g.player.pos.z); c.group.position.y = 0;
+    g.audio.growl({ x: s.x, y: 0.5, z: s.z });
+    const stopAt = red ? 3.2 : 1.3;
+    return {
+      step: (dt, t) => {
+        const p = c.group.position, pl = g.player.pos;
+        const dx = pl.x - p.x, dz = pl.z - p.z, d = Math.hypot(dx, dz);
+        if (t > 0.6) {
+          p.x += dx / d * 10 * dt; p.z += dz / d * 10 * dt;
+          c.group.rotation.y = Math.atan2(dx, dz);
+          c.animate(dt, 10);
+          if (Math.random() < dt * 12) g.audio.ghostStep({ x: p.x, y: 0.2, z: p.z });
+        } else c.animate(dt, 0);
+        if (d < stopAt || t > 3) { g.audio.stinger(red ? 0.45 : 1); g.ui.flash(red ? 0.15 : 0.45); g.shake(red ? 0.1 : 0.35); return true; }
+        return false;
+      },
+    };
+  }
+
+  // Krabbler huscht über den Boden
+  crawlerCross() {
+    const lane = this.lateralLane(5, 11, 2.5);
+    if (!lane) return this.doorSlam();
+    const c = this.crawler; c.show(lane.start.x, lane.start.z);
+    c.group.rotation.y = Math.atan2(lane.end.x - lane.start.x, lane.end.z - lane.start.z);
+    const dur = lane.len / 8;
+    this.g.audio.runSteps({ x: lane.mid.x, y: 0.2, z: lane.mid.z }, Math.ceil(dur / 0.08));
+    return {
+      step: (dt, t) => {
+        const k = Math.min(1, t / dur);
+        c.group.position.set(lane.start.x + (lane.end.x - lane.start.x) * k, 0, lane.start.z + (lane.end.z - lane.start.z) * k);
+        c.animate(dt, 8);
+        return t > dur;
+      },
+    };
+  }
+
+  // Krabbler läuft kopfüber an der Decke über dich hinweg
+  crawlerCeiling() {
+    const P = this.playerInfo(), w = this.g.world;
+    const start = { x: P.x + P.fx * 6, z: P.z + P.fz * 6 }, end = { x: P.x - P.fx * 5, z: P.z - P.fz * 5 };
+    if (!w.isOpen(w.cell(start.x), w.cell(start.z)) || !w.isOpen(w.cell(end.x), w.cell(end.z))) return this.crawlerCross();
+    const c = this.crawler; c.show(start.x, start.z);
+    c.group.rotation.set(Math.PI, Math.atan2(end.x - start.x, end.z - start.z), 0, 'YXZ');
+    c.group.position.y = 2.98;
+    this.g.audio.runSteps({ x: P.x, y: 3, z: P.z }, 10);
+    const dur = 1.6;
+    return {
+      step: (dt, t) => {
+        const k = Math.min(1, t / dur);
+        c.group.position.set(start.x + (end.x - start.x) * k, 2.98, start.z + (end.z - start.z) * k);
+        c.animate(dt, 7);
+        if (t > 0.6 && t - dt <= 0.6) this.g.audio.giggle({ x: P.x, y: 2.9, z: P.z });
+        return t > dur;
+      },
+    };
+  }
+
+  // Ein Kind starrt in der Ecke zur Wand – und dreht dann den Kopf ganz herum
+  childCorner() {
+    const g = this.g;
+    const s = this.spotInView(5, 9, 0.3);
+    if (!s) return this.giggle();
+    const c = this.child;
+    const P = this.playerInfo();
+    c.show(s.x, s.z, P.x, P.z);
+    c.group.rotation.y += Math.PI; // Rücken zum Spieler
+    c.head.rotation.y = 0;
+    let turned = 0;
+    g.audio.crying({ x: s.x, y: 1, z: s.z });
+    return {
+      step: (dt, t) => {
+        c.animate(dt);
+        const pl = g.player.pos, d = Math.hypot(s.x - pl.x, s.z - pl.z);
+        if (!turned && (d < 4 || t > 3.5)) { turned = t; g.audio.giggle({ x: s.x, y: 1.1, z: s.z }); }
+        if (turned) {
+          c.head.rotation.y = Math.min(Math.PI, (t - turned) * 2.2);       // ganz langsam herumdrehen
+          if (t - turned > 1.6) { g.flickerOverride = 0.02; if (t - turned > 1.9) { g.audio.stinger(g.settings.reduceScares ? 0.45 : 0.8); return true; } }
+        }
+        return t > 9;
+      },
+    };
+  }
+
+  // Eine Puppe sitzt plötzlich hinter dir und dreht den Kopf zu dir
+  dollAppear() {
+    const P = this.playerInfo(), w = this.g.world;
+    const x = P.x - P.fx * 1.6 + P.rx * rand(-0.4, 0.4), z = P.z - P.fz * 1.6 + P.rz * rand(-0.4, 0.4);
+    if (!w.isOpen(w.cell(x), w.cell(z))) return this.whisper();
+    const d = this.doll;
+    d.show(x, z, P.x, P.z);
+    d.group.rotation.y += rand(-1.2, 1.2);
+    d.head.rotation.y = 0;
+    this.g.audio.musicBox({ x, y: 0.4, z });
+    let seen = 0;
+    return {
+      step: (dt, t) => {
+        const pl = this.g.player.pos;
+        const look = Math.atan2(pl.x - x, pl.z - z) - d.group.rotation.y;
+        if (!seen && this.inView(x, z, 0.6)) seen = t;
+        if (seen) d.head.rotation.y += (look - d.head.rotation.y) * Math.min(1, dt * 2);
+        if (seen && t - seen > 2.2) { this.g.audio.giggle({ x, y: 0.4, z }); return true; }
+        return t > 12;
+      },
+    };
+  }
+
+  // Schaufensterpuppe kommt näher – aber nur, wenn du nicht hinsiehst
+  mannequin() {
+    const g = this.g;
+    const s = this.spotInView(8, 12, 0.2);
+    if (!s) return this.shadowWalk();
+    const m = this.mannequinE, w = g.world;
+    let pos = { x: s.x, z: s.z };
+    m.show(pos.x, pos.z, g.player.pos.x, g.player.pos.z);
+    let wasSeen = true, moves = 0;
+    return {
+      step: (dt, t) => {
+        const pl = g.player.pos, seenNow = this.inView(pos.x, pos.z, 0.55);
+        const d = Math.hypot(pos.x - pl.x, pos.z - pl.z);
+        if (!seenNow && wasSeen && d > 2.2) {
+          // Ein Stück näher rücken und den Kopf anders neigen
+          const step = Math.min(2.2, d - 1.6), nx = pos.x + (pl.x - pos.x) / d * step, nz = pos.z + (pl.z - pos.z) / d * step;
+          if (w.isOpen(w.cell(nx), w.cell(nz))) { pos = { x: nx, z: nz }; moves++; g.audio.scrape({ x: nx, y: 0.3, z: nz }); }
+          m.show(pos.x, pos.z, pl.x, pl.z);
+          m.group.rotation.z = rand(-0.12, 0.12);
+        }
+        wasSeen = seenNow;
+        if (seenNow && d < 2.6 && moves > 0) { g.audio.stinger(g.settings.reduceScares ? 0.45 : 1); g.shake(0.3); return true; }
+        return t > 25;
+      },
+    };
+  }
+
+  // Rote Augenpaare im Dunkeln, die verschwinden, wenn man sie anleuchtet
+  eyesInDark() {
+    const P = this.playerInfo(), w = this.g.world, E = this.eyes;
+    let n = 0;
+    for (const p of E.pairs) {
+      const a = Math.atan2(P.fx, P.fz) + rand(-1.1, 1.1), dx = Math.sin(a), dz = Math.cos(a);
+      const free = w.freeDistance(P.x, P.z, dx, dz, 14);
+      if (free < 4) continue;
+      const d = rand(3.5, free - 0.3);
+      p.position.set(P.x + dx * d, rand(0.3, 2.4), P.z + dz * d);
+      p.lookAt(this.g.camera.position);
+      p.visible = true; p.userData.t = rand(0, 1.2); n++;
+    }
+    if (!n) return this.whisper();
+    this.g.audio.whisper(null);
+    return {
+      step: (dt, t) => {
+        const pl = this.g.player;
+        for (const p of E.pairs) {
+          if (!p.visible) continue;
+          p.scale.y = (Math.sin((t + p.userData.t) * 3) > 0.95) ? 0.1 : 1; // blinzeln
+          if (pl.flashlightOn && this.inView(p.position.x, p.position.z, 0.95)) p.visible = false;
+        }
+        return t > 6 || E.pairs.every((p) => !p.visible);
+      },
+    };
+  }
+
+  // Schwarze Arme greifen neben dir aus der Wand
+  wallHands() {
+    const P = this.playerInfo(), w = this.g.world;
+    let hit = null;
+    for (const [dx, dz] of [[P.rx, P.rz], [-P.rx, -P.rz], [P.fx, P.fz]]) {
+      const d = w.freeDistance(P.x, P.z, dx, dz, 3.5);
+      if (d < 3.4) { hit = { x: P.x + dx * (d + 0.35), z: P.z + dz * (d + 0.35), nx: -dx, nz: -dz }; break; }
+    }
+    if (!hit) return this.banging();
+    const H = this.hands;
+    H.group.visible = true;
+    H.arms.forEach((a, i) => {
+      a.position.set(hit.x + hit.nz * (i - 2) * 0.35, rand(0.6, 2.2), hit.z - hit.nx * (i - 2) * 0.35);
+      a.rotation.set(rand(-0.3, 0.3), Math.atan2(hit.nx, hit.nz) + rand(-0.3, 0.3), 0);
+      a.scale.z = 0.01; a.userData.delay = i * 0.12;
+    });
+    this.g.audio.scrape({ x: hit.x, y: 1.4, z: hit.z });
+    this.g.audio.whisper({ x: hit.x, y: 1.6, z: hit.z });
+    return {
+      step: (dt, t) => {
+        H.arms.forEach((a) => {
+          const k = t - a.userData.delay;
+          a.scale.z = Math.max(0.01, k < 0.6 ? k / 0.6 : k < 1.6 ? 1 + Math.sin(k * 12) * 0.03 : 1 - (k - 1.6) * 4);
+        });
+        if (t > 0.5 && t - dt <= 0.5) this.g.audio.stinger(this.g.settings.reduceScares ? 0.4 : 0.7);
+        return t > 2.3;
+      },
+    };
+  }
+
+  // Eine Kiste fliegt durch den Raum und kracht gegen die Wand
+  objectThrow() {
+    const lane = this.lateralLane(3, 7, 2);
+    if (!lane) return this.banging();
+    const box = this.box; box.visible = true;
+    box.position.set(lane.start.x, 1.2, lane.start.z);
+    const dur = lane.len / 11;
+    return {
+      step: (dt, t) => {
+        const k = Math.min(1, t / dur);
+        box.position.set(lane.start.x + (lane.end.x - lane.start.x) * k, 1.2 + Math.sin(k * Math.PI) * 0.6, lane.start.z + (lane.end.z - lane.start.z) * k);
+        box.rotation.x += dt * 9; box.rotation.y += dt * 7;
+        if (k >= 1 && !box.userData.hit) { box.userData.hit = true; this.g.audio.bang({ x: lane.end.x, y: 1.2, z: lane.end.z }, 1); this.g.shake(0.2); }
+        if (k >= 1) box.position.y = Math.max(0.2, box.position.y - dt * 6);
+        return t > dur + 0.8;
+      },
+    };
+  }
+
+  // Stromausfall – und wenn das Licht zurückkommt, steht der Schattenmann vor dir
+  blackout() {
+    const g = this.g, w = g.world;
+    w.blackout = true;
+    g.audio.bang({ x: g.player.pos.x, y: 3, z: g.player.pos.z }, 0.5);
+    let shown = false, spot = null;
+    const e = this.shadowMan;
+    return {
+      step: (dt, t) => {
+        g.flickerOverride = t < 2.6 ? 0 : (t < 2.9 ? (Math.random() < 0.5 ? 1 : 0) : null);
+        if (t > 0.6 && t - dt <= 0.6) g.audio.whisper(null);
+        if (!shown && t > 2.6) {
+          shown = true; w.blackout = false;
+          spot = this.spotInView(1.7, 2.6, 0.08);
+          if (spot) { e.show(spot.x, spot.z, g.player.pos.x, g.player.pos.z); e.setEyes(true); g.audio.stinger(g.settings.reduceScares ? 0.5 : 1); g.shake(0.3); }
+        }
+        if (e.group.visible) e.animate(dt);
+        if (t > 3.2) e.hide();
+        return t > 3.3;
+      },
+    };
+  }
+
+  // Im Taschenlampen-Flackern steht für einen Moment etwas direkt vor dir
+  flickerReveal() {
+    const g = this.g;
+    const s = this.spotInView(2.6, 4.2, 0.12);
+    const e = choice([this.shadowMan, this.mannequinE, this.child]);
+    return {
+      step: (dt, t) => {
+        const on = t < 0.3 ? Math.random() > 0.5 : t < 0.7 ? false : t < 1.05 ? true : t < 1.35 ? false : t < 1.6 ? Math.random() > 0.6 : true;
+        g.flickerOverride = t < 1.6 ? (on ? 1 : 0.02) : null;
+        if (s) {
+          const vis = t >= 0.7 && t < 1.05;
+          if (vis && !e.group.visible) { e.show(s.x, s.z, g.player.pos.x, g.player.pos.z); if (e === this.child) e.head.rotation.y = 0; if (e.setEyes) e.setEyes(true); g.audio.stinger(g.settings.reduceScares ? 0.35 : 0.75); }
+          if (!vis) e.hide();
+        }
+        return t > 1.7;
+      },
+    };
+  }
+
+  // Etwas steht hinter dir – wenn du dich umdrehst, ist es da (Kind oder Schaufensterpuppe)
+  behindYou() {
+    const P = this.playerInfo(), w = this.g.world;
+    const x = P.x - P.fx * 2.0, z = P.z - P.fz * 2.0;
+    if (!w.isOpen(w.cell(x), w.cell(z)) || !w.lineOfSight(P.x, P.z, x, z)) return this.stepsBehind();
+    const e = Math.random() < 0.5 ? this.child : this.mannequinE;
+    e.show(x, z, P.x, P.z);
+    if (e === this.child) e.head.rotation.y = 0;
+    this.g.audio.breath();
+    this.g.audio.whisper({ x, y: 1.4, z });
+    this.g.ui.message('… hinter dir …', 2);
+    let seen = 0;
+    return {
+      step: (dt, t) => {
+        if (!seen && this.inView(x, z, 0.55)) { seen = t; this.g.audio.stinger(this.g.settings.reduceScares ? 0.5 : 1); this.g.shake(0.35); }
+        if (seen) return t - seen > 0.45;
+        return t > 7;
+      },
+    };
+  }
+
+  // Ganz selten: Ein kurzer Blick auf den echten Geist in der Ferne – er verschwindet sofort
+  ghostGlimpse() {
+    const s = this.spotInView(10, 15, 0.2);
+    if (!s) return this.eyesInDark();
+    this.place(this.phantom, s.x, s.z);
+    return { step: (dt, t) => { this.phantom.animate(dt, 0, 0); return t > 0.6; } };
+  }
+
+  // Unterschwellige Fratzen-Blitze
+  subliminal() {
+    const g = this.g, red = g.settings.reduceScares;
+    const flashes = red ? [0.1] : [0.05, 0.4, 0.62];
+    const faces = [this.faces.grin, this.faces.eyeless, this.faces.screamer];
+    let i = 0, off = -1;
+    g.audio.whoosh(null);
+    return {
+      step: (dt, t) => {
+        if (i < flashes.length && t >= flashes[i]) { g.ui.showScareFace(red ? 0.35 : 0.6, faces[i % faces.length]); g.flickerOverride = 0.05; off = t + 0.07; i++; }
+        if (off > 0 && t > off) { g.ui.hideScareFace(); g.flickerOverride = null; off = -1; }
+        return t > 0.9;
+      },
+    };
+  }
+
+  // Hilfsfunktion: freie Querbahn im Blickfeld
+  lateralLane(dmin, dmax, minLen) {
+    const w = this.g.world;
+    const s = this.spotInView(dmin, dmax, 0.2);
+    if (!s) return null;
+    const rx = -s.dz, rz = s.dx;
+    const ext = (sign) => { let e = 0; while (e < 5 && w.isWalkable(w.cell(s.x + rx * sign * (e + 0.4)), w.cell(s.z + rz * sign * (e + 0.4)))) e += 0.4; return e; };
+    const a = ext(-1), b = ext(1);
+    if (a + b < minLen) return null;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    return { start: { x: s.x - rx * a * dir, z: s.z - rz * a * dir }, end: { x: s.x + rx * b * dir, z: s.z + rz * b * dir }, mid: { x: s.x, z: s.z }, len: a + b };
   }
 }
