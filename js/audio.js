@@ -37,6 +37,7 @@ export class AudioEngine {
   setVolume(v) {
     this.volume = v;
     if (this.master) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+    if (this.scareBus) this.scareBus.gain.setTargetAtTime(1.8 * v, this.ctx.currentTime, 0.05);
   }
 
   _setup() {
@@ -47,14 +48,21 @@ export class AudioEngine {
     const limiter = c.createDynamicsCompressor();
     limiter.threshold.value = -2; limiter.ratio.value = 20; limiter.attack.value = 0.001; limiter.release.value = 0.1;
     this.master.connect(comp).connect(limiter).connect(c.destination);
+    this.limiter = limiter;
+    // Eigener, lauter Kanal für Schocks (am Kompressor vorbei, nur vom Limiter begrenzt)
+    this.scareBus = c.createGain(); this.scareBus.gain.value = 1.8 * this.volume;
+    this.scareBus.connect(limiter);
+    // Musik und Umgebung werden bei Schocks kurz abgesenkt, damit der Schrei durchschlägt
+    this.duckNode = c.createGain(); this.duckNode.connect(this.master);
     // Hall: synthetische Impulsantwort eines großen, leeren Gebäudes
     this.verb = c.createConvolver();
     this.verb.buffer = this._impulse(2.4, 3);
     this.verbSend = c.createGain(); this.verbSend.gain.value = 0.45;
     this.verbSend.connect(this.verb).connect(this.master);
     this.sfx = c.createGain(); this.sfx.connect(this.master); this.sfx.connect(this.verbSend);
-    this.music = c.createGain(); this.music.gain.value = 0; this.music.connect(this.master);
-    this.amb = c.createGain(); this.amb.gain.value = 0; this.amb.connect(this.master);
+    this.music = c.createGain(); this.music.gain.value = 0; this.music.connect(this.duckNode);
+    this.amb = c.createGain(); this.amb.gain.value = 0; this.amb.connect(this.duckNode);
+    this.scareBus.connect(this.verbSend);
     const ambVerb = c.createGain(); ambVerb.gain.value = 0.5; this.amb.connect(ambVerb).connect(this.verbSend);
     // Verzerrung für Schreie
     this.distCurve = new Float32Array(1024);
@@ -140,9 +148,19 @@ export class AudioEngine {
     else p.setPosition(x, y, z);
   }
   _dest(pos) {
-    if (!pos) return this.sfx;
-    const p = this._panner(pos.x, pos.y ?? 1.4, pos.z); p.connect(this.sfx);
+    const bus = this._bus || this.sfx;
+    if (!pos) return bus;
+    const p = this._panner(pos.x, pos.y ?? 1.4, pos.z); p.connect(bus);
     return p;
+  }
+
+  // Alles in fn() läuft über den lauten Schock-Kanal; Musik und Umgebung werden kurz abgesenkt.
+  _loud(fn, duckSec = 1.5) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, d = this.duckNode.gain;
+    d.cancelScheduledValues(t); d.setTargetAtTime(0.12, t, 0.015); d.setTargetAtTime(1, t + duckSec, 0.5);
+    this._bus = this.scareBus;
+    try { fn(); } finally { this._bus = null; }
   }
 
   updateListener(cam, fx, fz) {
@@ -292,17 +310,36 @@ export class AudioEngine {
   // Jumpscare: Aufprall + lauter Schrei
   stinger(strength = 1) {
     const k = strength * this.scareScale;
-    this._impact(k);
-    if (strength >= 0.6) this._scream({ base: rand(900, 1150), dur: rand(0.9, 1.3), gain: 0.85 * k });
-    else this._noise({ dur: 0.9, type: 'highpass', freq: 1500, gain: 0.45 * k, attack: 0.005 });
+    this._loud(() => {
+      this._impact(k);
+      if (strength >= 0.6) {
+        this._scream({ base: rand(950, 1200), dur: rand(1.0, 1.4), gain: 1.0 * k });
+        this._scream({ base: rand(650, 750), dur: 1.1, gain: 0.55 * k, rough: 1.8, when: 0.02 });
+      } else this._noise({ dur: 0.9, type: 'highpass', freq: 1500, gain: 0.5 * k, attack: 0.005 });
+    }, 1.3);
   }
-  // Todesschrei: lang, laut, mehrstimmig
+  // Der Geist entdeckt dich und schreit dich an
+  yell(strength = 1) {
+    const k = strength * this.scareScale;
+    this._loud(() => {
+      this._impact(k * 1.1);
+      this._scream({ base: 820, dur: 1.6, gain: 1.0 * k, rough: 2.2 });
+      this._scream({ base: 1250, dur: 1.3, gain: 0.6 * k, when: 0.04 });
+      this._noise({ dur: 1.2, freq: 1800, freqEnd: 900, q: 0.7, gain: 0.5 * k, attack: 0.01 });
+    }, 1.6);
+  }
+  // Todesschrei: lang, ohrenbetäubend, mehrstimmig
   scream(strength = 1) {
     const k = strength * this.scareScale;
-    this._impact(k * 1.2);
-    this._scream({ base: 1100, dur: 2.0, gain: 1.0 * k });
-    this._scream({ base: 720, dur: 1.9, gain: 0.7 * k, when: 0.05, rough: 1.6 });
-    this._scream({ base: 1500, dur: 1.2, gain: 0.45 * k, when: 0.3 });
+    this._loud(() => {
+      this._impact(k * 1.3);
+      this._impact(k * 0.8, 0.5);
+      this._scream({ base: 1100, dur: 2.3, gain: 1.0 * k });
+      this._scream({ base: 720, dur: 2.2, gain: 0.8 * k, when: 0.03, rough: 2 });
+      this._scream({ base: 1500, dur: 1.6, gain: 0.55 * k, when: 0.25 });
+      this._scream({ base: 420, dur: 2.0, gain: 0.6 * k, when: 0.1, rough: 3 });
+      this._noise({ dur: 2.2, type: 'highpass', freq: 2500, gain: 0.45 * k, attack: 0.01 });
+    }, 2.6);
   }
   ghostShriek(pos) { this._scream({ base: rand(650, 800), dur: 1.3, gain: 0.75 * this.scareScale, pos, rough: 1.8 }); }
   growl(pos) {

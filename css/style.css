@@ -55,6 +55,25 @@ button:focus-visible, .file-btn:focus-within { outline: 2px solid var(--brass); 
 #fx-hunt { z-index: 7; opacity: 0; background: radial-gradient(ellipse at center, transparent 30%, rgba(150, 10, 0, 0.55) 100%); transition: opacity 0.8s; }
 body.hunt #fx-hunt { opacity: 1; animation: huntPulse 1.1s ease-in-out infinite; }
 @keyframes huntPulse { 50% { opacity: 0.45; } }
+/* Blick aus dem Versteck: durch Lüftungsschlitze bzw. einen schmalen Spalt */
+#fx-hide { z-index: 9; display: none; }
+body[data-hide] #fx-hide { display: block; }
+body[data-hide="wardrobe"] #fx-hide, body[data-hide="locker"] #fx-hide {
+  background:
+    radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.85) 75%),
+    repeating-linear-gradient(180deg, rgba(4, 3, 2, 0.96) 0 22px, rgba(4, 3, 2, 0.15) 22px 34px);
+}
+body[data-hide="locker"] #fx-hide {
+  background:
+    radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.85) 75%),
+    repeating-linear-gradient(180deg, rgba(10, 12, 13, 0.97) 0 16px, rgba(10, 12, 13, 0.1) 16px 26px);
+}
+body[data-hide="gap"] #fx-hide {
+  background:
+    linear-gradient(90deg, #020202 0 34%, rgba(2, 2, 2, 0.6) 40%, transparent 44% 56%, rgba(2, 2, 2, 0.6) 60%, #020202 66% 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 20% 80%, rgba(0, 0, 0, 0.7));
+}
+body[data-hide] #crosshair { display: none; }
 #fx-flash { z-index: 8; background: #fff; opacity: 0; }
 #fx-flash.show { animation: flash 0.35s ease-out; }
 @keyframes flash { 0% { opacity: var(--a, 0.4); } 100% { opacity: 0; } }

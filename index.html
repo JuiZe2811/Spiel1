@@ -22,6 +22,7 @@
 <div id="fx-vignette" class="fx"></div>
 <div id="fx-threat" class="fx"></div>
 <div id="fx-hunt" class="fx"></div>
+<div id="fx-hide" class="fx"></div>
 <div id="fx-flash" class="fx"></div>
 <div id="scare-face" class="fx"><img id="scare-img" alt=""></div>
 
@@ -92,7 +93,7 @@
     </nav>
     <p id="ios-hint" class="fine" hidden>iPhone-Tipp: Safari erlaubt kein echtes Vollbild. Über <em>Teilen → Zum Home-Bildschirm</em> startet das Spiel ohne Browserleisten.</p>
     <p class="fine">Kopfhörer empfohlen. Enthält plötzliche Schreckeffekte und laute Geräusche.</p>
-    <p class="credit"><span class="version">v1.3.0</span> · made by Julian</p>
+    <p class="credit"><span class="version">v1.4.0</span> · made by Julian</p>
   </div>
 </section>
 
@@ -152,7 +153,8 @@
           <dt>Kreuz</dt><dd>Kruzifix: 4 s Schutz, 20 s Abklingzeit</dd>
           <dt>Bengalo</dt><dd>Wirft einen roten Bengalo in Blickrichtung</dd>
           <dt>Kompass</dt><dd>3 s in der Hand, Nadel zeigt zum nächsten Schlüssel (alle 30 s)</dd>
-          <dt>Interagieren</dt><dd>Erscheint bei Türen, Schlüsseln und Bengalos</dd>
+          <dt>Interagieren</dt><dd>Türen öffnen, in Verstecke schlüpfen und wieder heraus</dd>
+          <dt>Aufsammeln</dt><dd>Schlüssel und Bengalos automatisch beim Berühren</dd>
         </dl>
       </div>
       <div>
@@ -161,7 +163,7 @@
           <dt>W A S D</dt><dd>Bewegen</dd>
           <dt>Maus</dt><dd>Umsehen (ins Bild klicken)</dd>
           <dt>Shift</dt><dd>Rennen</dd>
-          <dt>E</dt><dd>Interagieren</dd>
+          <dt>E</dt><dd>Türen, Verstecke (Schrank, Spind, Mauerspalt)</dd>
           <dt>F</dt><dd>Taschenlampe</dd>
           <dt>Q</dt><dd>Kruzifix</dd>
           <dt>G</dt><dd>Bengalo werfen</dd>
@@ -170,7 +172,7 @@
         </dl>
       </div>
     </div>
-    <p class="note">Rennen und Türen sind laut. Der Geist hört Schritte, sieht deine Taschenlampe (schalte sie aus, um unauffälliger zu sein) und sucht dort, wo er dich zuletzt gesehen hat. Hinter geschlossenen Türen bist du für ihn unsichtbar.</p>
+    <p class="note">Rennen und Türen sind laut. Der Geist hört Schritte, sieht deine Taschenlampe (schalte sie aus, um unauffälliger zu sein) und sucht dort, wo er dich zuletzt gesehen hat. Hinter geschlossenen Türen bist du für ihn unsichtbar. In Schränken, Spinden und Mauerspalten kannst du dich verstecken – solange er nicht sieht, wie du hineinschlüpfst.</p>
     <button type="button" class="mbtn btn-back">ZURÜCK</button>
   </div>
 </section>
@@ -202,6 +204,14 @@
   <div class="panel wide">
     <h2>Patch Notes</h2>
     <article class="patch">
+      <h3>v1.4.0 <small>Verstecke &amp; lautere Schocks</small></h3>
+      <ul>
+        <li><b>Verstecke:</b> 13 Stück im ganzen Gebäude – Holzschränke in Büros und Halle, Metallspinde im Lager, Mauerspalten zwischen Kisten im Keller. Mit INTERAGIEREN bzw. E hineinschlüpfen und durch die Schlitze schauen. Der Geist verliert deine Spur und läuft vorbei.</li>
+        <li><b>Aber Vorsicht:</b> Sieht er aus der Nähe (unter 7 m), wie du hineinschlüpfst, reißt er das Versteck auf. Im Versteck bleibt die Taschenlampe aus.</li>
+        <li><b>Automatisch aufsammeln:</b> Schlüssel und Bengalos werden eingesammelt, sobald du sie berührst.</li>
+        <li><b>Viel lautere Jumpscares:</b> Schocks laufen über einen eigenen, lauten Kanal, Musik und Umgebung werden dabei kurz abgesenkt.</li>
+        <li><b>Er schreit dich an:</b> Entdeckt dich der Geist, brüllt er dich an. Der Todesschrei ist jetzt vierstimmig und ohrenbetäubend.</li>
+      </ul>
       <h3>v1.3.0 <small>Neuer Sound &amp; Kompass</small></h3>
       <ul>
         <li><b>Laute Schreie:</b> Jumpscares und der Tod haben jetzt echte, verzerrte Schreie mit wuchtigem Aufprall.</li>

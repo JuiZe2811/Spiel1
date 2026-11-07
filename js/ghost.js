@@ -159,7 +159,7 @@ export class Ghost {
       this.visT = 0.12;
       const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
       const inFov = dist < 2.4 || (dx * fx + dz * fz) / (dist || 1) > 0.42;
-      this.sees = this.ignoreT <= 0 && dist < range && inFov && world.lineOfSight(this.pos.x, this.pos.z, pl.pos.x, pl.pos.z);
+      this.sees = !this.g.playerHidden && this.ignoreT <= 0 && dist < range && inFov && world.lineOfSight(this.pos.x, this.pos.z, pl.pos.x, pl.pos.z);
     }
     if (this.sees) {
       this.awareness += dt * (dist < 3 ? 6 : 0.7 + 2.6 * (1 - dist / range));

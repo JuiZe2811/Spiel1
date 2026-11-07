@@ -97,7 +97,7 @@ export class Player {
     this.vel.x = lerp(this.vel.x, tx, a); this.vel.z = lerp(this.vel.z, tz, a);
     const ox = this.pos.x, oz = this.pos.z;
     this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt;
-    g.world.collide(this.pos, this.radius);
+    if (!this.hidden) g.world.collide(this.pos, this.radius);
     const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz);
     this.moving = moved > 0.2 * dt;
 

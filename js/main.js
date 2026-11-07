@@ -18,6 +18,7 @@ const SAVE_KEY = 'f5s_save_v1';
 const TOTAL_KEYS = 5;
 const COMPASS_TIME = 3;
 const COMPASS_COOLDOWN = 30;
+const STILL = { moveX: 0, moveY: 0, sprint: false, crouch: false };
 
 class Game {
   constructor() {
@@ -200,6 +201,7 @@ class Game {
     this.keys.forEach((k) => { k.group.visible = false; });
     this.flares.pickups.forEach((p) => { p.group.visible = false; });
     this.flares.clearActive();
+    this._leaveHide(true);
     this.ambient.reset();
     this.compass.visible = false; this.hintT = 0;
     this.player.reset(this.world.start.x, this.world.start.z + 1, 0);
@@ -260,6 +262,7 @@ class Game {
     this.scares.reset();
     this.ghostModel.group.visible = true;
     this.input.sprintToggle = false;
+    this._leaveHide(true);
     this.ambient.reset();
     this.hintT = 0; this.hintCd = 0; this.compassUp = 0; this.compass.visible = false;
     this.ui.fade(false);
@@ -319,7 +322,7 @@ class Game {
       v: 1,
       keys: this.keys.map((k) => ({ x: k.x, y: k.y, z: k.z, c: k.collected })),
       doors: this.world.doors.map((d) => d.open),
-      player: this.player.serialize(),
+      player: this.hidden ? { ...this.player.serialize(), x: this.hidden.front.x, z: this.hidden.front.z, light: this.hideLight } : this.player.serialize(),
       ghost: this.ghost.serialize(),
       elapsed: this.elapsed,
       finalPhase: this.finalPhase,
@@ -331,8 +334,11 @@ class Game {
 
   onGhostSpotted() {
     if (this.state !== 'playing') return;
-    this.audio.stinger(0.5);
+    const red = settings.reduceScares;
+    this.audio.yell(red ? 0.45 : 1);
     this.audio.ghostShriek(this.ghost.pos);
+    this.ui.flash(red ? 0.15 : 0.4);
+    this.shake(red ? 0.15 : 0.45);
     this.ui.message('Er hat dich gesehen. LAUF!', 2.5);
   }
 
@@ -341,12 +347,15 @@ class Game {
   // ---------- Interaktion ----------
   _findInteractable() {
     const p = this.player.pos, f = this.player.forward();
+    if (this.hidden) return { type: 'unhide', desk: `${this.hidden.name} verlassen`, touch: 'RAUSGEHEN' };
     let best = null, bd = 1e9;
     const consider = (d, obj) => { if (d < bd) { bd = d; best = obj; } };
-    for (const k of this.keys) {
-      if (k.collected) continue;
-      const d = Math.hypot(k.x - p.x, k.z - p.z);
-      if (d < 1.9) consider(d - 0.5, { type: 'key', k, desk: 'Schlüssel aufnehmen', touch: 'AUFNEHMEN' });
+    for (const h of this.world.hides) {
+      const d = Math.hypot(h.front.x - p.x, h.front.z - p.z);
+      if (d > 1.4) continue;
+      const dx = h.x - p.x, dz = h.z - p.z, l = Math.hypot(dx, dz) || 1;
+      if ((dx * f.x + dz * f.z) / l < 0.1 && d > 0.6) continue;
+      consider(d - 0.2, { type: 'hide', h, desk: `Im ${h.name} verstecken`, touch: 'VERSTECKEN' });
     }
     for (const door of this.world.doors) {
       const dx = door.x - p.x, dz = door.z - p.z, d = Math.hypot(dx, dz);
@@ -354,13 +363,6 @@ class Game {
       const facing = (dx * f.x + dz * f.z) / (d || 1);
       if (d > 1.0 && facing < 0.25) continue;
       consider(d, { type: 'door', door, desk: door.open ? 'Tür schließen' : 'Tür öffnen', touch: door.open ? 'TÜR ZU' : 'TÜR ÖFFNEN' });
-    }
-    for (const pk of this.flares.pickups) {
-      if (pk.taken) continue;
-      const d = Math.hypot(pk.x - p.x, pk.z - p.z);
-      if (d < 1.6) consider(d - 0.3, this.flares.count >= MAX_FLARES
-        ? { type: 'flareFull', desk: `Bengalo (du trägst schon ${MAX_FLARES})`, touch: `VOLL ${MAX_FLARES}/${MAX_FLARES}` }
-        : { type: 'flare', pk, desk: 'Bengalo aufnehmen', touch: 'BENGALO' });
     }
     const e = this.world.exit;
     const de = Math.hypot(e.x - p.x, e.z - p.z);
@@ -392,8 +394,10 @@ class Game {
         this.ui.message(`Roter Bengalo eingesammelt (${this.flares.count}/${MAX_FLARES}). Werfen ${how}.`, 3);
         this.save();
       }
-    } else if (it.type === 'flareFull') {
-      this.ui.message(`Du kannst nur ${MAX_FLARES} Bengalos tragen. Wirf erst einen.`, 2);
+    } else if (it.type === 'hide') {
+      this._enterHide(it.h);
+    } else if (it.type === 'unhide') {
+      this._leaveHide(false);
     } else if (it.type === 'door') {
       const d = it.door, p = this.player.pos;
       if (d.open && Math.hypot(d.x - p.x, d.z - p.z) < 0.75) { this.ui.message('Du stehst in der Tür.', 1.5); return; }
@@ -431,8 +435,83 @@ class Game {
     this.ui.flash(0.25);
   }
 
+  // ---------- Automatisch aufsammeln ----------
+  _autoPickup() {
+    const p = this.player.pos;
+    for (const k of this.keys) {
+      if (!k.collected && Math.hypot(k.x - p.x, k.z - p.z) < 1.15) this._interact({ type: 'key', k });
+    }
+    for (const pk of this.flares.pickups) {
+      if (pk.taken) continue;
+      const d = Math.hypot(pk.x - p.x, pk.z - p.z);
+      if (d < 0.95) {
+        if (this.flares.count < MAX_FLARES) this._interact({ type: 'flare', pk });
+        else if (!pk.warned) { pk.warned = true; this.ui.message(`Du kannst nur ${MAX_FLARES} Bengalos tragen. Wirf erst einen.`, 2); }
+      } else if (d > 2) pk.warned = false;
+    }
+  }
+
+  // ---------- Verstecke ----------
+  get playerHidden() { return !!this.hidden && !this.hideCompromised; }
+
+  _enterHide(h) {
+    const pl = this.player, g = this.ghost;
+    const gd = Math.hypot(g.pos.x - pl.pos.x, g.pos.z - pl.pos.z);
+    // Hat er gesehen, wie du hineingeschlüpft bist? Dann ist das Versteck verraten.
+    this.hideCompromised = g.state !== 'repel' && g.sees && gd < 7;
+    this.hidden = h;
+    this.hideT = 0; this.hideNearMsg = false;
+    this.hideLight = pl.flashlightOn;
+    pl.flashlightOn = false;
+    pl.hidden = true;
+    pl.pos.x = h.x; pl.pos.z = h.z;
+    pl.yaw = h.yaw; pl.pitch = 0;
+    pl.vel.x = pl.vel.z = 0;
+    this.input.sprintToggle = false;
+    document.body.dataset.hide = h.type;
+    const pos = { x: h.x, y: 1.2, z: h.z };
+    if (h.type === 'locker') this.audio.metalClank(pos); else if (h.type === 'wardrobe') this.audio.doorOpen(pos); else this.audio.scrape(pos);
+    if (this.hideCompromised) this.ui.message('Er hat gesehen, wo du dich versteckst!', 2.5);
+    else {
+      this.ui.message(`Versteckt im ${h.name}. Bleib ganz ruhig …`, 2.5);
+      // Er verliert deine Spur und sucht dort, wo er dich zuletzt gesehen hat.
+      if (g.chasing) { g.lastKnown = { x: h.front.x + (Math.random() - 0.5) * 3, z: h.front.z + (Math.random() - 0.5) * 3 }; g.awareness = 0.4; }
+    }
+  }
+
+  _leaveHide(silent) {
+    const h = this.hidden;
+    if (!h) return;
+    const pl = this.player;
+    this.hidden = null; this.hideCompromised = false;
+    pl.hidden = false;
+    pl.pos.x = h.front.x; pl.pos.z = h.front.z;
+    this.world.collide(pl.pos, pl.radius);
+    pl.flashlightOn = this.hideLight !== false;
+    delete document.body.dataset.hide;
+    if (!silent) { if (h.type === 'locker') this.audio.metalClank({ x: h.x, y: 1.2, z: h.z }); else this.audio.doorClose({ x: h.x, y: 1.2, z: h.z }); }
+  }
+
+  _updateHidden(dt, gd) {
+    const h = this.hidden, pl = this.player, g = this.ghost;
+    this.hideT += dt;
+    // Nur durch die Schlitze nach vorn schauen
+    pl.yaw = h.yaw + clamp(angleDiff(h.yaw, pl.yaw), -0.85, 0.85);
+    pl.pitch = clamp(pl.pitch, -0.45, 0.35);
+    if (this.hideCompromised && g.state !== 'repel') {
+      if (!g.chasing) g.setState('chase');
+      g.lastKnown = { x: h.front.x, z: h.front.z }; g.lostT = 0;
+      if (Math.hypot(g.pos.x - h.front.x, g.pos.z - h.front.z) < 1.1 && this.grace <= 0) {
+        if (pl.crossActive > 0) { g.repel(); this.hideCompromised = false; } else { this.audio.doorSlam({ x: h.x, y: 1.2, z: h.z }); this._die(); return true; }
+      }
+    } else if (gd < 6 && !this.hideNearMsg) { this.hideNearMsg = true; this.ui.message('Er ist ganz nah … nicht bewegen.', 2.5); }
+    else if (gd > 9) this.hideNearMsg = false;
+    return false;
+  }
+
   _die() {
     this.state = 'dying';
+    this._leaveHide(true);
     this.dieT = 0;
     this.input.active = false;
     this.input.releaseAll();
@@ -505,10 +584,14 @@ class Game {
     const it = this._findInteractable();
     for (const a of input.consumeActions()) {
       if (a === 'pause') { this.pause(false); return; }
-      if (a === 'light') { pl.flashlightOn = !pl.flashlightOn; this.audio.click(); }
+      if (a === 'light') {
+        if (this.hidden) this.ui.message('Im Versteck bleibt das Licht aus.', 1.5);
+        else { pl.flashlightOn = !pl.flashlightOn; this.audio.click(); }
+      }
       if (a === 'cross') this._useCrucifix();
       if (a === 'interact') this._interact(it);
-      if (a === 'flare') {
+      if (a === 'flare' && this.hidden) this.ui.message('Aus dem Versteck kannst du nicht werfen.', 1.5);
+      else if (a === 'flare') {
         if (this.flares.throw() === 'none') this.ui.message('Du hast keinen Bengalo. Sie liegen rot leuchtend im Gebäude.', 2.2);
         else this.makeNoise(pl.pos.x, pl.pos.z, 5);
       }
@@ -526,7 +609,8 @@ class Game {
     }
     pl.flicker = this.flickerOverride ?? this.flickV;
 
-    pl.update(dt, input);
+    pl.update(dt, this.hidden ? STILL : input);
+    if (this.hidden) { if (this._updateHidden(dt, gd)) return; } else this._autoPickup();
     g.update(dt);
     this.world.update(dt, g.pos);
     this.scares.update(dt);
@@ -540,8 +624,8 @@ class Game {
       g.repel();
       this.ui.message('Das Kruzifix drängt ihn zurück!', 2);
     }
-    // Erwischt?
-    if (gd < 0.85 && g.state !== 'repel' && this.grace <= 0) {
+    // Erwischt? (Im sicheren Versteck findet er dich nicht.)
+    if (gd < 0.85 && g.state !== 'repel' && this.grace <= 0 && !this.hidden) {
       if (pl.crossActive > 0) g.repel(); else { this._die(); return; }
     }
 
@@ -558,6 +642,7 @@ class Game {
     if (g.state === 'chase') threat = 1;
     else if (g.state !== 'repel') threat = clamp(1 - gd / 14, 0, 1) * (g.state === 'wander' ? 0.45 : 0.75);
     if (this.hunting) threat = Math.max(threat, 0.6);
+    if (this.hidden && gd < 8) threat = Math.max(threat, 1 - gd / 10);
     this.audio.setThreat(threat);
     this.audio.update(dt, this.world.zoneAtPos(pl.pos.x, pl.pos.z) === 'k');
     const f = pl.forward();
@@ -700,7 +785,7 @@ class Game {
     this.ghostModel.animate(dt, 1, 0);
     this.player.flicker = Math.random() < 0.5 ? 0.1 : 1;
     this.player.flash.intensity = 26 * this.player.flicker;
-    if (this.dieT > 1.5 && this.state === 'dying') {
+    if (this.dieT > 2.1 && this.state === 'dying') {
       this.state = 'over';
       this.ui.hideScareFace();
       this.audio.silenceGame();

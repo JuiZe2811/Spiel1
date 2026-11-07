@@ -7,8 +7,8 @@ export const WALL_H = 3.0;
 export const DOOR_H = 2.2;
 
 const WALLISH = new Set(['#', 'W', 'X']);
-const FURN = new Set(['T', 'S', 'B', 'C', 'O']);
-const TALL = new Set(['S', 'B', 'O']);
+const FURN = new Set(['T', 'S', 'B', 'C', 'O', 'H']);
+const TALL = new Set(['S', 'B', 'O', 'H']);
 const FLOOR = new Set(['o', 'c', 's', 'k', 'l', 'P']);
 
 // Sammelt Dreiecke vieler Objekte in einer einzigen Geometrie (= ein Draw Call pro Material).
@@ -75,6 +75,7 @@ export class World {
     this.chairs = [];
     this.windows = [];
     this.lights = [];
+    this.hides = [];
     this.meshes = [];
     this.start = { x: 0, z: 0 };
     this._analyze();
@@ -405,6 +406,8 @@ export class World {
         crateBuf.box(xc, 0.45, zc, 0.9, 0.9, 0.9, (rnd() - 0.5) * 0.3);
         if (rnd() < 0.6) crateBuf.box(xc + 0.1, 1.15, zc - 0.05, 0.5, 0.5, 0.5, rnd());
         this.addCollider(xc - 0.55, xc + 0.55, zc - 0.55, zc + 0.55);
+      } else if (c === 'H') {
+        this._buildHide(cx, cz, zone, woodBuf, metalBuf, crateBuf, frameBuf);
       } else if (c === 'O') {
         concreteBuf.box(xc, WALL_H / 2, zc, 0.6, WALL_H, 0.6);
         this.addCollider(xc - 0.3, xc + 0.3, zc - 0.3, zc + 0.3);
@@ -468,6 +471,51 @@ export class World {
     frameBuf.box(px - ux * (w + 0.04), (y0 + y1) / 2, pz - uz * (w + 0.04), 0.08, y1 - y0, 0.08, rot);
     frameBuf.box(px + ux * (w + 0.04), (y0 + y1) / 2, pz + uz * (w + 0.04), 0.08, y1 - y0, 0.08, rot);
     this.windows.push({ x: px + n[0] * 0.03, z: pz + n[2] * 0.03, nx: n[0], nz: n[2], y: (y0 + y1) / 2 + 0.1 });
+  }
+
+  // Versteck: Rückseite an der Wand, Öffnung zeigt in den Raum.
+  _buildHide(cx, cz, zone, woodBuf, metalBuf, crateBuf, frameBuf) {
+    const xc = this.center(cx), zc = this.center(cz);
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    // Wand, deren gegenüberliegende Seite frei ist
+    let wall = dirs.find(([dx, dz]) => this.isWallish(cx + dx, cz + dz) && this.isOpen(cx - dx, cz - dz) && !this.isWallish(cx - dx, cz - dz))
+      || dirs.find(([dx, dz]) => this.isWallish(cx + dx, cz + dz)) || [0, -1];
+    const [wx, wz] = wall, nx = -wx, nz = -wz;            // n = Blickrichtung aus dem Versteck
+    const rot = Math.atan2(nx, nz);
+    const depth = 0.7, width = 1.25, h = 2.15;
+    const bx = xc + wx * (CS / 2 - depth / 2), bz = zc + wz * (CS / 2 - depth / 2); // Mittelpunkt des Möbels
+    const type = zone === 'k' ? 'gap' : zone === 's' ? 'locker' : 'wardrobe';
+    // lokale Achsen: u = entlang der Wand, n = nach vorn
+    const ux = -nz, uz = nx;
+    const at = (u, n) => [bx + ux * u + nx * n, bz + uz * u + nz * n];
+    if (type === 'wardrobe') {
+      woodBuf.box(bx, h / 2, bz, width, h, depth, rot);
+      const [fx, fz] = at(0, depth / 2 + 0.01);
+      frameBuf.box(fx, h / 2, fz, 0.02, h - 0.2, 0.02, rot);                       // Türspalt
+      for (const u of [-0.12, 0.12]) { const [hx, hz] = at(u, depth / 2 + 0.03); metalBuf.box(hx, 1.05, hz, 0.03, 0.14, 0.03, rot); }
+      for (let i = 0; i < 6; i++) { const [sx, sz] = at(0, depth / 2 + 0.012); frameBuf.box(sx, 1.45 + i * 0.07, sz, width - 0.25, 0.02, 0.01, rot); } // Lüftungsschlitze
+      woodBuf.box(bx, h + 0.04, bz, width + 0.1, 0.08, depth + 0.08, rot);
+    } else if (type === 'locker') {
+      for (const u of [-0.31, 0.31]) {
+        const [lx, lz] = at(u, 0);
+        metalBuf.box(lx, h / 2, lz, 0.6, h, depth, rot);
+        for (let i = 0; i < 5; i++) { const [sx, sz] = at(u, depth / 2 + 0.008); frameBuf.box(sx, 1.6 + i * 0.06, sz, 0.36, 0.018, 0.01, rot); }
+        const [hx, hz] = at(u + 0.2, depth / 2 + 0.02); frameBuf.box(hx, 1.0, hz, 0.03, 0.18, 0.03, rot);
+      }
+    } else {
+      // Mauerspalt: zwei Kistenstapel mit Brettern davor, dazwischen ein dunkler Spalt
+      for (const u of [-0.45, 0.45]) {
+        const [sx, sz] = at(u, 0);
+        crateBuf.box(sx, 0.45, sz, 0.42, 0.9, depth, rot);
+        crateBuf.box(sx, 1.3, sz, 0.4, 0.8, depth - 0.05, rot + 0.05);
+        crateBuf.box(sx, 1.95, sz, 0.38, 0.5, depth - 0.1, rot - 0.04);
+      }
+      for (const y of [0.4, 1.2, 2.25]) { const [px, pz] = at(0, depth / 2 - 0.02); woodBuf.box(px, y, pz, width + 0.15, 0.12, 0.04, rot + (y - 1) * 0.04); }
+    }
+    this.addCollider(bx - (Math.abs(ux) * width + Math.abs(nx) * depth) / 2, bx + (Math.abs(ux) * width + Math.abs(nx) * depth) / 2,
+      bz - (Math.abs(uz) * width + Math.abs(nz) * depth) / 2, bz + (Math.abs(uz) * width + Math.abs(nz) * depth) / 2);
+    const name = { wardrobe: 'Schrank', locker: 'Spind', gap: 'Mauerspalt' }[type];
+    this.hides.push({ cx, cz, type, name, x: bx, z: bz, nx, nz, yaw: Math.atan2(-nx, -nz), front: { x: xc + nx * 0.55, z: zc + nz * 0.55 } });
   }
 
   _addChair(x, z, rot) {

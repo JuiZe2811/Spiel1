@@ -5,26 +5,27 @@
 // s  Lager/Archiv    k  Keller
 // l  Eingangshalle   P  Startpunkt (Halle)
 // T  Schreibtisch    S  Regal   B  Schrank   C  Kisten   O  Pfeiler
+// H  Versteck (Schrank, Spind oder Mauerspalt – je nach Raum)
 export const MAP = [
   "##########################################",
-  "#ooooooooo#ooooooooo#ooooooooo#ssssssssss#",
+  "#ooooooooH#ooooooooo#ooooooooH#sssssssssH#",
   "#oTToooTTo#oTTooooTo#ooooooooo#sSSssSSsss#",
   "#ooooooooo#ooooooooo#ooTTTTToo#ssssssssCs#",
   "#oooooBooo#ooooooooo#ooooooooo#sSSssSSsss#",
-  "#ooooooooo#oooooBooo#ooooooooo#ssCsssssss#",
+  "#ooooooooo#HooooBooo#ooooooooo#ssCsssssss#",
   "#####D#########D#########D##########D#####",
   "#cccccccccccccccccccccccccccccccccccccccc#",
   "#cccccccccccccccccccccccccccccccccccccccc#",
   "####D########D#######cccc######D#######cc#",
-  "#kkkkkkkk#oooooooo#llllllll#ssssssssss#cc#",
+  "#Hkkkkkkk#oooooooo#lllllllH#ssssssssss#cc#",
   "#kkkkkkkk#oTTooTTo#llllllll#sSSsSSsSSs#cc#",
   "#kkkkkkkk#ooooooooDllllllll#ssssssssss#cc#",
   "#kkkkkkkk#oooBoooo#llllllllDssssssssss#cc#",
   "#kkkkkkkk#oooooooo#llllllll#sSSsSSsSSsDcc#",
   "#kkCkkkkk#ooTTTooo#llllllll#ssssssssss#cc#",
-  "#kkkkkkkk#oooooooo#llllllll#ssCsssssCs#cc#",
+  "#kkkkkkkk#oooooooH#llllllll#HsCsssssCs#cc#",
   "###kkk#############llllllll######D#####cc#",
-  "#kkkkkkkkkkkkkkkk#llllllllll#sssssssss#cc#",
+  "#kkkkkkkkkkkkkkkH#Hlllllllll#sssssssss#cc#",
   "#kkOkkkkOkkkkOkkk#llllllllll#sSSsSSsSs#cc#",
   "#kkkkkkkkkkkkkkCk#llllllllllDsssssssss#cc#",
   "#kkCCkkkkkkkkkkkk#llllllllll#sssssssss#cc#",
@@ -32,7 +33,7 @@ export const MAP = [
   "#kkOkkkkOkkkkOkkk#llllllllll#sssssssss#cc#",
   "#kkkkkkkkkkkkkkkk#llllPlllll#ssssCssssDcc#",
   "#kkkkCkkkkkkkkCkk#llllllllll#sssssssss#cc#",
-  "#kkkkkkkkkkkkkkkk#llllllllll#sssssssss#cc#",
+  "#Hkkkkkkkkkkkkkkk#lllllllllH#ssssssssH#cc#",
   "######################X###################",
 ];
 

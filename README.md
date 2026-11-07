@@ -1,6 +1,6 @@
 # Die fünf Schlüssel
 
-**Version 1.3.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+**Version 1.4.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
 
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
@@ -38,7 +38,7 @@ Alle Ressourcen (Three.js, Schriften, Texturen, Klänge) liegen im Repository od
 | Kruzifix | Taste **Kreuz** (Abklingzeit als Ring) | Q |
 | Bengalo werfen | Taste **Bengalo** (Zähler am Knopf) | G |
 | Kompass | Taste **Kompass** | H |
-| Interagieren | Taste **INTERAGIEREN** / **AUFNEHMEN** erscheint bei Türen, Schlüsseln, Ausgang | E |
+| Interagieren | Taste **INTERAGIEREN** / **VERSTECKEN** erscheint bei Türen, Verstecken, Ausgang | E |
 | Pause | Pause-Knopf oben links | Esc |
 
 Die Oberfläche wird automatisch gewählt: Touch-Geräte (auch iPads, die sich als Mac ausgeben) bekommen die Touch-Steuerung, unabhängig von der Bildschirmgröße. Wechselt man das Eingabegerät (z. B. Tablet mit Maus), schaltet die Oberfläche um.
@@ -48,6 +48,8 @@ Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Kn
 ## Spielmechanik
 
 - **Schlüssel:** Fünf Schlüssel werden bei jedem Spielstart zufällig auf fünf verschiedene Räume verteilt (auf Tischen, Kisten oder in Ecken). Sie leuchten golden, damit sie auch auf kleinen Displays erkennbar sind.
+- **Verstecke:** 13 Verstecke – Holzschränke (Büros, Halle), Metallspinde (Lager) und Mauerspalten zwischen Kisten (Keller). Hineinschlüpfen mit INTERAGIEREN/E, wieder heraus genauso. Drinnen schaust du durch Lüftungsschlitze bzw. den Spalt, die Taschenlampe bleibt aus. Der Geist sieht dich nicht, verliert deine Spur und läuft vorbei. Sieht er aus weniger als 7 m, wie du hineinschlüpfst, reißt er das Versteck auf (das Kruzifix rettet dich dann noch).
+- **Automatisches Aufsammeln:** Schlüssel und Bengalos werden eingesammelt, sobald du sie berührst.
 - **Kompass:** Alle 30 Sekunden kannst du einen Kompass für 3 Sekunden in die Hand nehmen (Taste **Kompass** bzw. **H**). Seine Nadel zeigt zum nächsten Schlüssel, nach dem fünften Schlüssel zum Ausgang. Ein Schlüssel in unmittelbarer Nähe (unter 5 m) klingelt leise.
 - **Rote Bengalos:** 7 Stück liegen rot leuchtend im Gebäude. Man trägt bis zu 3, jeder kann einmal geworfen werden. Er fliegt in Blickrichtung, prallt von Wänden ab und leuchtet 30 Sekunden lang die Umgebung rot aus.
 - **Die Welt lebt:** Etwa alle 5–10 Sekunden verändert sich etwas: blutige Schriften („ER SIEHT DICH“, „LAUF“ …) und Handabdrücke erscheinen an Wänden hinter dir, Türen öffnen sich langsam von selbst, Glühbirnen platzen, Stühle drehen sich zu dir oder kippen um, Schattengestalten stehen in der Ferne und verschwinden im Licht, eine Spieluhr spielt, Schritte über der Decke.
@@ -75,7 +77,7 @@ Das Bild wird **ausschließlich lokal im Browser** verarbeitet und nur im `local
 
 ## Sound
 
-Alles wird live im Browser synthetisiert (keine Audiodateien): Hall eines großen, leeren Gebäudes, eine sich langsam verändernde Klangfläche, heulender Wind, ächzende Rohre, Metallklirren, Donner, fernes Weinen, tropfendes Wasser im Keller. Jumpscares und der Tod haben laute, verzerrte Schreie mit Vokal-Formanten und einem wuchtigen Aufprall. Bei Verfolgungen treiben Trommeln, Herzschlag und das Knurren des Geistes. Mit „Intensive Schreckeffekte reduzieren“ werden Schocks leiser und ohne Schreie abgespielt.
+Alles wird live im Browser synthetisiert (keine Audiodateien): Hall eines großen, leeren Gebäudes, eine sich langsam verändernde Klangfläche, heulender Wind, ächzende Rohre, Metallklirren, Donner, fernes Weinen, tropfendes Wasser im Keller. Jumpscares, das Entdecktwerden und der Tod haben laute, verzerrte Schreie mit Vokal-Formanten und einem wuchtigen Aufprall. Sie laufen über einen eigenen lauten Kanal (nur vom Limiter begrenzt), Musik und Umgebung werden dabei kurz abgesenkt. Bei Verfolgungen treiben Trommeln, Herzschlag und das Knurren des Geistes. Mit „Intensive Schreckeffekte reduzieren“ werden Schocks leiser und ohne Schreie abgespielt.
 
 ## Grafik & Leistung
 
