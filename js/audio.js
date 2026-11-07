@@ -124,13 +124,68 @@ export class AudioEngine {
     this.ghostGain = c.createGain(); this.ghostGain.gain.value = 0;
     this.ghostGain.connect(this.ghostPan).connect(this.sfx);
     const gv = this._loop(this.noise); const gbp = c.createBiquadFilter(); gbp.type = 'bandpass'; gbp.frequency.value = 420; gbp.Q.value = 4;
-    const gvg = c.createGain(); gvg.gain.value = 0.5; gv.connect(gbp).connect(gvg).connect(this.ghostGain);
+    const gvg = this.ghostSynth = c.createGain(); gvg.gain.value = 0.5; gv.connect(gbp).connect(gvg).connect(this.ghostGain);
     const glfo = c.createOscillator(); glfo.frequency.value = 0.6; const glg = c.createGain(); glg.gain.value = 180; glfo.connect(glg).connect(gbp.frequency); glfo.start();
     const go = c.createOscillator(); go.type = 'triangle'; go.frequency.value = 96;
     const gvib = c.createOscillator(); gvib.frequency.value = 4.3; const gvibg = c.createGain(); gvibg.gain.value = 5; gvib.connect(gvibg).connect(go.frequency); gvib.start();
     const gog = c.createGain(); gog.gain.value = 0.18; go.connect(gog).connect(this.ghostGain); go.start();
 
+    // Hintergrundmusik (Aufnahme), läuft über das Ducking wie die Umgebung
+    this.bed = c.createGain(); this.bed.gain.value = 0; this.bed.connect(this.duckNode);
+    this.bedLevel = 0.5;
     this.amb.gain.setTargetAtTime(1, c.currentTime, 1.5);
+    this.loadSamples();
+  }
+
+  // ---------- Aufgenommene Sounds (assets/audio) ----------
+  loadSamples() {
+    if (this.samplesLoading) return;
+    this.samplesLoading = true;
+    this.samples = {};
+    const files = { kreischen: 'kreischen.mp3', maedchen: 'maedchen-schrei.mp3', atem: 'geist-atem.mp3', stimmen: 'stimmen.mp3', musik: 'musik.mp3' };
+    for (const [name, file] of Object.entries(files)) {
+      fetch(`assets/audio/${file}`)
+        .then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then((buf) => new Promise((res, rej) => this.ctx.decodeAudioData(buf, res, rej)))
+        .then((audio) => { this.samples[name] = audio; this._onSample(name); })
+        .catch(() => { /* Datei fehlt: synthetischer Ersatz bleibt aktiv */ });
+    }
+  }
+
+  _onSample(name) {
+    const c = this.ctx;
+    if (name === 'atem') {
+      // Atmen/Knurren des Geistes als räumliche Dauerschleife
+      const src = c.createBufferSource(); src.buffer = this.samples.atem; src.loop = true;
+      const g = c.createGain(); g.gain.value = 1.4;
+      src.connect(g).connect(this.ghostGain); src.start();
+      this.ghostSynth.gain.setTargetAtTime(0.15, c.currentTime, 0.5);
+    }
+    if (name === 'musik') {
+      const src = c.createBufferSource(); src.buffer = this.samples.musik; src.loop = true;
+      src.connect(this.bed); src.start();
+      this.bed.gain.setTargetAtTime(this.bedLevel, c.currentTime, 2);
+    }
+  }
+
+  // Spielt eine Aufnahme ab (optional räumlich, Teilstück, Tonhöhe)
+  sample(name, { gain = 1, pos = null, rate = 1, offset = 0, duration = null, when = 0, fadeOut = 0.15 } = {}) {
+    const buf = this.samples && this.samples[name];
+    if (!this.ctx || !buf) return false;
+    const c = this.ctx, t = c.currentTime + when;
+    const src = c.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
+    const g = c.createGain(); g.gain.setValueAtTime(gain, t);
+    const len = duration ?? (buf.duration - offset) / rate;
+    if (duration) { g.gain.setValueAtTime(gain, t + Math.max(0, len - fadeOut)); g.gain.linearRampToValueAtTime(0.0001, t + len); }
+    src.connect(g).connect(this._dest(pos));
+    src.start(t, offset, duration ? duration * rate : undefined);
+    return true;
+  }
+
+  // Lautstärke der Hintergrundmusik: Menü lauter, im Spiel leise, bei Verfolgung fast weg
+  setBed(level) {
+    this.bedLevel = level;
+    if (this.bed) this.bed.gain.setTargetAtTime(level, this.ctx.currentTime, 1.2);
   }
 
   _loop(buffer) { const s = this.ctx.createBufferSource(); s.buffer = buffer; s.loop = true; s.loopStart = 0; s.start(0, Math.random() * 1.5); return s; }
@@ -312,7 +367,9 @@ export class AudioEngine {
     const k = strength * this.scareScale;
     this._loud(() => {
       this._impact(k);
-      if (strength >= 0.6) {
+      if (this.sample('kreischen', { gain: 1.3 * k, rate: rand(0.9, 1.08) })) {
+        if (strength >= 0.6) this._scream({ base: rand(950, 1200), dur: 1.0, gain: 0.45 * k });
+      } else if (strength >= 0.6) {
         this._scream({ base: rand(950, 1200), dur: rand(1.0, 1.4), gain: 1.0 * k });
         this._scream({ base: rand(650, 750), dur: 1.1, gain: 0.55 * k, rough: 1.8, when: 0.02 });
       } else this._noise({ dur: 0.9, type: 'highpass', freq: 1500, gain: 0.5 * k, attack: 0.005 });
@@ -323,6 +380,7 @@ export class AudioEngine {
     const k = strength * this.scareScale;
     this._loud(() => {
       this._impact(k * 1.1);
+      this.sample('kreischen', { gain: 1.3 * k, rate: 0.78 });   // tiefer: er brüllt dich an
       this._scream({ base: 820, dur: 1.6, gain: 1.0 * k, rough: 2.2 });
       this._scream({ base: 1250, dur: 1.3, gain: 0.6 * k, when: 0.04 });
       this._noise({ dur: 1.2, freq: 1800, freqEnd: 900, q: 0.7, gain: 0.5 * k, attack: 0.01 });
@@ -334,6 +392,9 @@ export class AudioEngine {
     this._loud(() => {
       this._impact(k * 1.3);
       this._impact(k * 0.8, 0.5);
+      this.sample('kreischen', { gain: 1.4 * k, rate: 0.9 });
+      this.sample('kreischen', { gain: 1.1 * k, rate: 0.7, when: 0.6 });
+      this.sample('maedchen', { gain: 1.2 * k, rate: 0.82, when: 0.15 });
       this._scream({ base: 1100, dur: 2.3, gain: 1.0 * k });
       this._scream({ base: 720, dur: 2.2, gain: 0.8 * k, when: 0.03, rough: 2 });
       this._scream({ base: 1500, dur: 1.6, gain: 0.55 * k, when: 0.25 });
@@ -384,7 +445,21 @@ export class AudioEngine {
     this._noise({ dur: 0.18, type: 'lowpass', freq: 500, gain: 0.9 * k, attack: 0.003, pos });
     this._tone({ freq: 70, freqEnd: 40, dur: 0.2, gain: 0.8 * k, pos });
   }
+  // Schrei eines Mädchens (für das Mädchen-Ereignis)
+  girlScream(pos, strength = 1) {
+    const k = strength * this.scareScale;
+    if (!this.samples || !this.samples.maedchen) { this.stinger(strength); return; }
+    this._loud(() => { this._impact(k * 0.7); this.sample('maedchen', { gain: 1.5 * k, pos, rate: rand(0.95, 1.05) }); }, 2.2);
+  }
+  // Unheimliche Stimmen aus der Ferne (Ausschnitt aus der Aufnahme)
+  voices(pos) {
+    const buf = this.samples && this.samples.stimmen;
+    if (!buf) return false;
+    const len = rand(5, 9);
+    return this.sample('stimmen', { gain: 0.9, pos, offset: rand(0, buf.duration - len - 0.5), duration: len, rate: rand(0.85, 1), fadeOut: 1.5 });
+  }
   distantScream(pos) {
+    if (this.sample('maedchen', { gain: 0.9 * this.scareScale, pos, rate: rand(0.8, 0.95) })) return;
     this._scream({ base: rand(850, 1050), dur: 1.9, gain: 0.7 * this.scareScale, pos });
   }
   pipeGroan(pos) {
@@ -475,7 +550,12 @@ export class AudioEngine {
     this.ghostGain.gain.setTargetAtTime(intensity, this.ctx.currentTime, 0.2);
   }
 
-  setThreat(t) { this.threat = t; if (this.ctx) this.music.gain.setTargetAtTime(clamp(t, 0, 1) * 0.55, this.ctx.currentTime, 0.6); }
+  setThreat(t) {
+    this.threat = t;
+    if (!this.ctx) return;
+    this.music.gain.setTargetAtTime(clamp(t, 0, 1) * 0.55, this.ctx.currentTime, 0.6);
+    if (this.bed && this.inGame) this.bed.gain.setTargetAtTime(t > 0.85 ? 0.05 : 0.22, this.ctx.currentTime, 1.0);
+  }
 
   silenceGame() {
     if (!this.ctx) return;
@@ -502,13 +582,14 @@ export class AudioEngine {
     if (this.ambT <= 0) {
       this.ambT = rand(3, 8);
       const p = { x: (this.lx || 0) + rand(-14, 14), y: rand(1, 3.5), z: (this.lz || 0) + rand(-14, 14) };
-      const pick = inKeller ? choiceW([['drip', 4], ['pipe', 3], ['clank', 2], ['creak', 1]]) : choiceW([['creak', 3], ['pipe', 2], ['clank', 1], ['thunder', 1], ['cry', 1], ['drip', 1], ['knock', 1]]);
+      const pick = inKeller ? choiceW([['drip', 4], ['pipe', 3], ['clank', 2], ['creak', 1]]) : choiceW([['creak', 3], ['pipe', 2], ['clank', 1], ['thunder', 1], ['cry', 1], ['drip', 1], ['knock', 1], ['voices', 2]]);
       if (pick === 'drip') { for (let i = 0; i < 3; i++) this._tone({ freq: rand(1700, 2600), freqEnd: 900, dur: 0.09, gain: 0.1, pos: p, when: i * rand(0.4, 0.9) }); }
       else if (pick === 'pipe') this.pipeGroan(p);
       else if (pick === 'clank') this.metalClank(p);
       else if (pick === 'thunder') this.thunder();
       else if (pick === 'cry') this.crying(p);
       else if (pick === 'knock') this.knock(p);
+      else if (pick === 'voices') { if (!this.voices(p)) this.crying(p); }
       else this.creakSlow(p);
     }
   }

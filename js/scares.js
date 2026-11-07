@@ -418,7 +418,8 @@ export class ScareDirector {
         if (!turned && (d < 4 || t > 3.5)) { turned = t; g.audio.giggle({ x: s.x, y: 1.1, z: s.z }); }
         if (turned) {
           c.head.rotation.y = Math.min(Math.PI, (t - turned) * 2.2);       // ganz langsam herumdrehen
-          if (t - turned > 1.6) { g.flickerOverride = 0.02; if (t - turned > 1.9) { g.audio.stinger(g.settings.reduceScares ? 0.45 : 0.8); return true; } }
+          if (t - turned > 1.4 && !c.screamed) { c.screamed = true; g.audio.girlScream({ x: s.x, y: 1.1, z: s.z }, g.settings.reduceScares ? 0.45 : 1); g.shake(0.3); }
+          if (t - turned > 1.6) { g.flickerOverride = 0.02; if (t - turned > 2.4) { c.screamed = false; return true; } }
         }
         return t > 9;
       },

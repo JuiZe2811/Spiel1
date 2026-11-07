@@ -1,6 +1,6 @@
 # Die fünf Schlüssel
 
-**Version 1.5.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+**Version 1.6.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
 
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
@@ -87,7 +87,19 @@ Das Bild wird **ausschließlich lokal im Browser** verarbeitet und nur im `local
 
 ## Sound
 
-Alles wird live im Browser synthetisiert (keine Audiodateien): Hall eines großen, leeren Gebäudes, eine sich langsam verändernde Klangfläche, heulender Wind, ächzende Rohre, Metallklirren, Donner, fernes Weinen, tropfendes Wasser im Keller. Jumpscares, das Entdecktwerden und der Tod haben laute, verzerrte Schreie mit Vokal-Formanten und einem wuchtigen Aufprall. Sie laufen über einen eigenen lauten Kanal (nur vom Limiter begrenzt), Musik und Umgebung werden dabei kurz abgesenkt. Bei Verfolgungen treiben Trommeln, Herzschlag und das Knurren des Geistes. Mit „Intensive Schreckeffekte reduzieren“ werden Schocks leiser und ohne Schreie abgespielt.
+Fünf aufgenommene Sounds liegen in `assets/audio/` und werden nach dem ersten Antippen geladen:
+
+| Datei | Einsatz |
+|---|---|
+| `kreischen.mp3` | Kreischen bei Jumpscares, beim Entdecktwerden (tiefer abgespielt) und beim Tod |
+| `maedchen-schrei.mp3` | Schrei beim Mädchen-Ereignis, ferne Schreie, Teil des Todesschreis |
+| `geist-atem.mp3` | Atmen/Knurren des Geistes als räumliche Dauerschleife |
+| `stimmen.mp3` | Zufällige Ausschnitte als ferne Stimmen |
+| `musik.mp3` | Hintergrundmusik: im Menü lauter, im Spiel leise, bei Verfolgung fast aus |
+
+Alles andere wird live im Browser synthetisiert: Hall eines großen, leeren Gebäudes, Klangfläche, Wind, Rohre, Metall, Donner, Weinen, Tropfen, Herzschlag und Trommeln bei Verfolgungen. Schocks laufen über einen eigenen lauten Kanal, Musik und Umgebung werden dabei kurz abgesenkt. Fehlt eine Datei, springt der synthetische Ersatz ein. Mit „Intensive Schreckeffekte reduzieren“ werden Schocks leiser.
+
+Bei jedem Start erscheint kurz ein Fenster mit den Neuerungen der aktuellen Version (`js/version.js`).
 
 ## Grafik & Leistung
 

@@ -12,7 +12,7 @@ import { UI } from './ui.js';
 import { Flares, MAX_FLARES } from './flares.js';
 import { AmbientDirector } from './ambient.js';
 import { ShadowMan } from './entities.js';
-import { VERSION } from './version.js';
+import { VERSION, WHATS_NEW } from './version.js';
 import { $, $$, store, rand, clamp, shuffle, angleDiff } from './util.js';
 
 const SAVE_KEY = 'f5s_save_v1';
@@ -82,6 +82,7 @@ class Game {
     this.resize();
     this.toMenu();
     $('#loading').hidden = true;
+    this._showWhatsNew();
     this.last = performance.now();
     this.renderer.setAnimationLoop((t) => this.loop(t));
   }
@@ -194,6 +195,7 @@ class Game {
     this.ui.show('screen-menu', false);
     $('#btn-continue').hidden = !store.get(SAVE_KEY, null);
     this.audio.silenceGame();
+    this.audio.inGame = false; this.audio.setBed(0.5);
     this.scares.hideAll();
     this.ui.threat(0);
     this._endHunt(true);
@@ -275,6 +277,7 @@ class Game {
 
   _play() {
     this.audio.unlock();
+    this.audio.inGame = true; this.audio.setBed(0.22);
     this.state = 'playing';
     this.ui.hideScreens();
     this.ui.setPlayMode(true, this.input.mode);
@@ -816,6 +819,17 @@ class Game {
     pl.update(dt, { moveX: 0, moveY: 0, sprint: false, crouch: false });
     this.ghostModel.animate(dt, 0, 0);
     this.world.update(dt, null);
+  }
+
+  // ---------- „Was ist neu“ bei jedem Start ----------
+  _showWhatsNew() {
+    const list = $('#wn-list');
+    list.textContent = '';
+    for (const t of WHATS_NEW) { const li = document.createElement('li'); li.textContent = t; list.appendChild(li); }
+    $('#whatsnew').hidden = false;
+    const close = () => { $('#whatsnew').hidden = true; this.audio.unlock(); };
+    $('#wn-ok').onclick = close;
+    $('#wn-all').onclick = () => { close(); this.ui.show('screen-patch'); };
   }
 
   // ---------- Gesicht ----------
