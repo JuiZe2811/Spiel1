@@ -51,7 +51,7 @@ class Game {
     this.tex = createTextures();
     this.world = new World(this.scene, this.tex, { lights: 4 });
     this.face = new FaceManager();
-    const gm = createGhostMaterials(this.face.texture);
+    const gm = createGhostMaterials(this.face.texture, this.tex.glow);
     this.ghostModel = new GhostModel(gm);
     this.scene.add(this.ghostModel.group);
     this.player = new Player(this, this.camera, this.tex);
@@ -784,9 +784,9 @@ class Game {
     const cam = this.camera, g = this.ghostModel.group;
     const f = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
     f.y = 0; f.normalize();
-    g.position.set(cam.position.x + f.x * 0.55, cam.position.y - 1.72, cam.position.z + f.z * 0.55);
+    g.position.set(cam.position.x + f.x * 0.6, cam.position.y - 1.9, cam.position.z + f.z * 0.62);
     g.rotation.y = Math.atan2(-f.x, -f.z);
-    this.ghostModel.animate(dt, 1, 0);
+    this.ghostModel.animate(dt, 1, 0, 'kill');
     this.player.flicker = Math.random() < 0.5 ? 0.1 : 1;
     this.player.flash.intensity = 26 * this.player.flicker;
     if (this.dieT > 2.1 && this.state === 'dying') {

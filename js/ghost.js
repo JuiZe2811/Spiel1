@@ -1,88 +1,289 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { clamp, rand, angleDiff } from './util.js';
 
+// Zerfetzter Saum: Alpha-Verlauf von unten (durchsichtig, eingerissen) nach oben (fest).
+function tatterAlpha() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 256, 0, 0);
+  g.addColorStop(0, '#000'); g.addColorStop(0.18, '#333'); g.addColorStop(0.42, '#fff'); g.addColorStop(1, '#fff');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  // Risse von unten nach oben
+  for (let i = 0; i < 26; i++) {
+    const px = Math.random() * 256, w = 3 + Math.random() * 12, h = 40 + Math.random() * 120;
+    const gr = x.createLinearGradient(0, 256, 0, 256 - h);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = gr;
+    x.beginPath(); x.moveTo(px - w, 256); x.lineTo(px + w, 256); x.lineTo(px + (Math.random() - 0.5) * 6, 256 - h); x.fill();
+  }
+  // Mottenlöcher
+  x.fillStyle = '#000';
+  for (let i = 0; i < 18; i++) { x.beginPath(); x.arc(Math.random() * 256, 90 + Math.random() * 166, 1 + Math.random() * 4, 0, 7); x.fill(); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;
+  return t;
+}
+
+// Stoff mit Flecken und Falten
+function clothMap() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#c9cfd2'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(40,45,50,${Math.random() * 0.12})`; x.fillRect(Math.random() * 256, 0, 2 + Math.random() * 8, 256); }
+  for (let i = 0; i < 14; i++) {
+    const px = Math.random() * 256, py = Math.random() * 200, r = 8 + Math.random() * 30;
+    const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(60,40,30,0.35)'); g.addColorStop(1, 'rgba(60,40,30,0)');
+    x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function hairAlpha() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 64, 256);
+  for (let i = 0; i < 26; i++) {
+    const px = 6 + Math.random() * 52, len = 140 + Math.random() * 116, w = 1 + Math.random() * 2.5;
+    const g = x.createLinearGradient(0, 0, 0, len);
+    g.addColorStop(0, '#fff'); g.addColorStop(0.75, '#ddd'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.strokeStyle = g; x.lineWidth = w;
+    x.beginPath(); x.moveTo(px, 0);
+    x.bezierCurveTo(px + (Math.random() - 0.5) * 10, len * 0.3, px + (Math.random() - 0.5) * 14, len * 0.7, px + (Math.random() - 0.5) * 12, len);
+    x.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
 let GEO = null;
 function geometries() {
   if (GEO) return GEO;
-  const profile = [[0.44, 0], [0.4, 0.25], [0.32, 0.65], [0.25, 1.05], [0.22, 1.3], [0.16, 1.44], [0.08, 1.5], [0.02, 1.52]]
+  // Gebeugte, ausgemergelte Silhouette
+  const profile = [[0.5, 0], [0.45, 0.25], [0.37, 0.62], [0.29, 1.0], [0.25, 1.25], [0.24, 1.42], [0.19, 1.56], [0.1, 1.63], [0.03, 1.66]]
     .map(([r, y]) => new THREE.Vector2(r, y));
-  const robe = new THREE.LatheGeometry(profile, 14);
-  // Ausgefranster Saum
-  const pos = robe.attributes.position;
-  for (let i = 0; i < pos.count; i++) if (pos.getY(i) < 0.01) pos.setY(i, Math.random() * 0.28);
-  robe.computeVertexNormals();
-  const head = new THREE.SphereGeometry(0.17, 16, 12);
-  const face = new THREE.SphereGeometry(0.173, 20, 14, Math.PI / 2 - 0.95, 1.9, 0.5, 1.95);
-  const hair = new THREE.SphereGeometry(0.182, 14, 10, -Math.PI / 2 - (Math.PI + 0.3) / 2, Math.PI + 0.3, 0, 2.3);
-  const strand = new THREE.PlaneGeometry(0.07, 0.85); strand.translate(0, -0.42, 0);
-  const arm = new THREE.CylinderGeometry(0.035, 0.045, 0.62, 6); arm.translate(0, -0.31, 0);
-  const hand = new THREE.SphereGeometry(1, 6, 5);
-  GEO = { robe, head, face, hair, strand, arm, hand };
+  const robe = new THREE.LatheGeometry(profile, 20);
+  const head = new THREE.SphereGeometry(0.15, 18, 14);
+  const face = new THREE.SphereGeometry(0.153, 22, 16, Math.PI / 2 - 0.95, 1.9, 0.5, 1.95);
+  const hair = new THREE.SphereGeometry(0.162, 16, 10, -Math.PI / 2 - (Math.PI + 0.5) / 2, Math.PI + 0.5, 0, 2.2);
+  const strand = new THREE.PlaneGeometry(0.11, 1); strand.translate(0, -0.5, 0);
+  const rag = new THREE.PlaneGeometry(0.16, 0.8); rag.translate(0, -0.4, 0);
+  const upper = new THREE.CapsuleGeometry(0.032, 0.42, 3, 6); upper.translate(0, -0.25, 0);
+  const fore = new THREE.CapsuleGeometry(0.026, 0.4, 3, 6); fore.translate(0, -0.23, 0);
+  const palm = new THREE.BoxGeometry(0.06, 0.08, 0.02); palm.translate(0, -0.04, 0);
+  const finger = new THREE.CapsuleGeometry(0.0075, 0.07, 2, 4); finger.translate(0, -0.045, 0);
+  const neck = new THREE.CylinderGeometry(0.035, 0.05, 0.22, 8); neck.translate(0, 0.11, 0);
+  GEO = { robe, head, face, hair, strand, rag, upper, fore, palm, finger, neck };
   return GEO;
 }
 
-export function createGhostMaterials(faceTex) {
+export function createGhostMaterials(faceTex, glowTex) {
+  const alpha = tatterAlpha();
   return {
-    robe: new THREE.MeshLambertMaterial({ color: 0x9ba6ad, emissive: 0x18212a, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
-    skin: new THREE.MeshLambertMaterial({ color: 0xc6cdcf, emissive: 0x1d262c }),
-    hair: new THREE.MeshLambertMaterial({ color: 0x060606, side: THREE.DoubleSide }),
+    robe: new THREE.MeshLambertMaterial({ map: clothMap(), color: 0x8f99a0, emissive: 0x111820, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
+    rag: new THREE.MeshLambertMaterial({ color: 0x838c93, emissive: 0x0e1419, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
+    strand: new THREE.MeshLambertMaterial({ color: 0x050505, alphaMap: hairAlpha(), alphaTest: 0.35, side: THREE.DoubleSide }),
+    skin: new THREE.MeshLambertMaterial({ color: 0x9da6aa, emissive: 0x161e24 }),
+    hair: new THREE.MeshLambertMaterial({ color: 0x040404, side: THREE.DoubleSide }),
     face: new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, color: 0xc4ccd0 }),
     shadow: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+    glow: glowTex || null,
   };
 }
 
-// 3D-Modell des Geistes (wird für den echten Geist und für harmlose Erscheinungen verwendet).
+// 3D-Modell des Geistes mit Stoff-, Haar-, Finger- und Kopfanimationen.
 export class GhostModel {
   constructor(mats, shadow = false) {
     const G = geometries();
     const m = (k) => (shadow ? mats.shadow : mats[k]);
     this.group = new THREE.Group();
-    this.body = new THREE.Mesh(G.robe, m('robe'));
-    this.group.add(this.body);
+    this.inner = new THREE.Group();     // für Zucken/Flackern, ohne die KI-Position zu stören
+    this.group.add(this.inner);
+    this.body = new THREE.Group();
+    this.inner.add(this.body);
+
+    // Gewand mit eigener Geometrie (wird pro Bild verformt)
+    this.robeGeo = G.robe.clone();
+    this.robeBase = this.robeGeo.attributes.position.array.slice();
+    this.robe = new THREE.Mesh(this.robeGeo, m('robe'));
+    this.body.add(this.robe);
+
+    // Stofffetzen, die vom Gewand herabhängen
+    this.rags = [];
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * Math.PI * 2 + rand(-0.2, 0.2), y = rand(0.35, 0.9);
+      const r = 0.48 - y * 0.18;
+      const rag = new THREE.Mesh(G.rag, m('rag'));
+      rag.position.set(Math.sin(a) * r, y, Math.cos(a) * r);
+      rag.rotation.y = a; rag.scale.set(rand(0.7, 1.3), rand(0.8, 1.4), 1);
+      this.body.add(rag); this.rags.push({ mesh: rag, phase: rand(0, 6) });
+    }
+
+    // Hals und Kopf (ragt bei der Jagd nach vorn)
+    this.neck = new THREE.Mesh(G.neck, m('skin')); this.neck.position.set(0, 1.56, 0.02);
+    this.body.add(this.neck);
     this.head = new THREE.Group();
-    this.head.position.set(0, 1.66, 0.02);
-    this.head.scale.setScalar(1.3);
+    this.head.position.set(0, 1.78, 0.04);
+    this.head.scale.set(1.25, 1.4, 1.25);
     this.head.add(new THREE.Mesh(G.head, m('skin')));
     if (!shadow) { this.faceMesh = new THREE.Mesh(G.face, mats.face); this.head.add(this.faceMesh); }
     this.head.add(new THREE.Mesh(G.hair, m('hair')));
-    for (let i = 0; i < 9; i++) {
-      const a = -0.05 + (i / 8) * (Math.PI + 0.1);
-      const s = new THREE.Mesh(G.strand, m('hair'));
-      s.position.set(Math.cos(a) * 0.175, 0.05, -Math.sin(a) * 0.175);
-      s.rotation.y = a + Math.PI / 2;
-      s.scale.y = 0.8 + Math.random() * 0.5;
-      this.head.add(s);
+    // Langes, nasses Haar – einige Strähnen hängen vor dem Gesicht
+    this.strands = [];
+    for (let i = 0; i < 18; i++) {
+      const front = i >= 16;
+      const a = front ? Math.PI / 2 + (i === 16 ? -0.62 : 0.62) : -0.35 + (i / 15) * (Math.PI + 0.7);
+      const s = new THREE.Mesh(G.strand, m('strand'));
+      const r = front ? 0.15 : 0.16;
+      s.position.set(Math.cos(a) * r, front ? 0.12 : 0.06, front ? Math.sin(a) * r : -Math.sin(a) * r);
+      s.rotation.y = front ? 0 : a + Math.PI / 2;
+      s.scale.set(front ? 0.8 : 1.2, front ? rand(0.7, 0.85) : rand(0.75, 1.2), 1);
+      this.head.add(s); this.strands.push({ mesh: s, phase: rand(0, 6), front });
     }
-    this.group.add(this.head);
-    this.arms = [];
-    for (const side of [-1, 1]) {
-      const pivot = new THREE.Group();
-      pivot.position.set(side * 0.2, 1.42, 0);
-      pivot.add(new THREE.Mesh(G.arm, m('skin')));
-      const hand = new THREE.Mesh(G.hand, m('skin'));
-      hand.scale.set(0.045, 0.1, 0.03); hand.position.y = -0.68;
-      pivot.add(hand);
-      this.group.add(pivot);
-      this.arms.push(pivot);
+    // Glimmende Augenpunkte (vor allem bei der Jagd)
+    this.eyes = [];
+    if (!shadow && mats.glow) {
+      for (const sx of [-1, 1]) {
+        const e = new THREE.Sprite(new THREE.SpriteMaterial({ map: mats.glow, color: 0xd8f4ff, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+        e.position.set(sx * 0.052, 0.025, 0.155); e.scale.set(0.05, 0.05, 1);
+        this.head.add(e); this.eyes.push(e);
+      }
     }
-    this.t = Math.random() * 10;
-    this.group.traverse((o) => { o.frustumCulled = true; });
-  }
-  animate(dt, reach = 0, speed = 0) {
-    this.t += dt;
-    const t = this.t;
-    this.body.position.y = 0.12 + Math.sin(t * 2.1) * 0.05;
-    this.head.position.y = 1.66 + this.body.position.y - 0.12;
-    this.body.rotation.z = Math.sin(t * 1.3) * 0.04;
-    this.body.rotation.x = clamp(speed * 0.05, 0, 0.25);
-    this.head.rotation.z = 0.22 + Math.sin(t * 0.7) * 0.08;
-    this.head.rotation.x = Math.sin(t * 0.9) * 0.05;
-    this.arms.forEach((a, i) => {
-      const target = -0.15 - reach * 1.3 + Math.sin(t * 1.7 + i) * 0.08;
-      a.rotation.x += (target - a.rotation.x) * Math.min(1, dt * 6);
-      a.rotation.z = (i ? 1 : -1) * (0.12 - reach * 0.08);
-      a.position.y = 1.42 + this.body.position.y - 0.12;
+    this.body.add(this.head);
+
+    // Lange, knochige Arme mit Ellbogen, Hand und Fingern
+    this.arms = [-1, 1].map((side) => {
+      const shoulder = new THREE.Group(); shoulder.position.set(side * 0.2, 1.48, 0.02);
+      shoulder.add(new THREE.Mesh(G.upper, m('skin')));
+      const elbow = new THREE.Group(); elbow.position.y = -0.5; shoulder.add(elbow);
+      elbow.add(new THREE.Mesh(G.fore, m('skin')));
+      const wrist = new THREE.Group(); wrist.position.y = -0.46; elbow.add(wrist);
+      wrist.add(new THREE.Mesh(G.palm, m('skin')));
+      const fingers = [];
+      for (let f = 0; f < 4; f++) {
+        const base = new THREE.Group(); base.position.set((f - 1.5) * 0.016, -0.08, 0); base.rotation.z = (f - 1.5) * -0.06;
+        const seg1 = new THREE.Mesh(G.finger, m('skin')); base.add(seg1);
+        const knuckle = new THREE.Group(); knuckle.position.y = -0.09; base.add(knuckle);
+        const seg2 = new THREE.Mesh(G.finger, m('skin')); knuckle.add(seg2);
+        base.scale.y = f === 0 || f === 3 ? 1.0 : 1.25; // überlange Mittelfinger
+        wrist.add(base); fingers.push({ base, knuckle });
+      }
+      this.body.add(shoulder);
+      return { side, shoulder, elbow, wrist, fingers };
     });
+
+    // Nebelschleier, der vom Saum aufsteigt
+    this.mist = [];
+    if (!shadow && mats.glow) {
+      for (let i = 0; i < 10; i++) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: mats.glow, color: 0x7d8c99, transparent: true, opacity: 0, depthWrite: false }));
+        this.inner.add(sp); this.mist.push({ sp, life: rand(0, 1.6), max: rand(1.2, 2) });
+      }
+    }
+
+    this.t = Math.random() * 10;
+    this.twitchT = 0; this.headTarget = { x: 0, y: 0, z: 0.25 };
+    this.glitchT = 0; this.nextGlitch = rand(1, 3);
+    this.mode = 'wander';
+  }
+
+  // reach: 0..1 (Arme greifen), speed: m/s, mode: KI-Zustand ('chase', 'wander', 'kill', …)
+  animate(dt, reach = 0, speed = 0, mode = 'wander') {
+    this.t += dt;
+    const t = this.t, chase = mode === 'chase' || mode === 'kill', kill = mode === 'kill';
+
+    // Schweben und Vorbeugen
+    this.body.position.y = 0.14 + Math.sin(t * 1.8) * 0.06;
+    const lean = kill ? 0 : clamp(speed * 0.06, 0, 0.32) + (chase ? 0.12 : 0);
+    this.body.rotation.x += (lean - this.body.rotation.x) * Math.min(1, dt * 4);
+    this.body.rotation.z = Math.sin(t * 1.1) * 0.035;
+
+    // Gewand weht: Saum flattert, zieht beim Laufen nach hinten
+    const pos = this.robeGeo.attributes.position, a = pos.array, b = this.robeBase;
+    const drag = Math.min(speed, 6) * 0.05;
+    for (let i = 0; i < a.length; i += 3) {
+      const x = b[i], y = b[i + 1], z = b[i + 2];
+      const low = Math.max(0, 1 - y / 1.1), k = low * low;
+      const ang = Math.atan2(x, z);
+      const w = Math.sin(t * 3.2 + ang * 3 + y * 5) * 0.07 * k + Math.sin(t * 5.1 + ang * 7) * 0.025 * k;
+      const r = 1 + w / (Math.hypot(x, z) + 0.001);
+      a[i] = x * r; a[i + 1] = y + Math.sin(t * 2.4 + ang * 4) * 0.04 * k; a[i + 2] = z * r - drag * k;
+    }
+    pos.needsUpdate = true;
+
+    for (const r of this.rags) {
+      r.mesh.rotation.x = Math.sin(t * 3 + r.phase) * 0.25 + drag * 2.2;
+      r.mesh.rotation.z = Math.sin(t * 2.3 + r.phase * 2) * 0.18;
+    }
+    for (const s of this.strands) {
+      s.mesh.rotation.x = (s.front ? -0.06 : 0.04) + Math.sin(t * 1.7 + s.phase) * 0.06 + (s.front ? 0 : drag * 0.8);
+      s.mesh.rotation.z = Math.sin(t * 1.3 + s.phase) * 0.05;
+    }
+
+    // Ruckartige Kopfbewegungen (wie ein gebrochener Hals)
+    this.twitchT -= dt;
+    if (this.twitchT <= 0) {
+      this.twitchT = chase ? rand(0.25, 0.9) : rand(1.2, 3.5);
+      this.headTarget = chase
+        ? { x: rand(0.15, 0.45), y: rand(-0.35, 0.35), z: rand(-0.7, 0.7) }
+        : { x: rand(-0.1, 0.3), y: rand(-0.7, 0.7), z: rand(-0.2, 0.5) + 0.2 };
+    }
+    const snap = Math.min(1, dt * (chase ? 28 : 10));
+    const hd = this.head.rotation;
+    hd.x += (this.headTarget.x - hd.x) * snap;
+    hd.y += (this.headTarget.y - hd.y) * snap;
+    hd.z += (this.headTarget.z - hd.z) * snap;
+    const jut = kill ? 0.02 : chase ? 0.14 : 0.03;
+    this.head.position.z += (jut - this.head.position.z) * Math.min(1, dt * 5);
+    this.head.position.y = 1.78 + (chase ? -0.04 : 0);
+    this.neck.rotation.x = this.head.position.z * 2.2;
+    if (kill) { hd.x += (Math.random() - 0.5) * 0.4; hd.z += (Math.random() - 0.5) * 0.5; }
+
+    // Arme: hängend und zuckend – bei der Jagd nach vorne greifend, Finger krallen
+    for (const arm of this.arms) {
+      const s = arm.side, ph = s > 0 ? 0 : Math.PI;
+      const tx = -0.12 - reach * 1.35 + Math.sin(t * 1.4 + ph) * 0.06 + (chase ? Math.sin(t * 9 + ph) * 0.12 : 0);
+      arm.shoulder.rotation.x += (tx - arm.shoulder.rotation.x) * Math.min(1, dt * 7);
+      arm.shoulder.rotation.z = s * (0.1 + reach * 0.05) + Math.sin(t * 0.9 + ph) * 0.03;
+      const bend = reach > 0.5 ? -0.25 : -0.12 - Math.sin(t * 1.1 + ph) * 0.08;
+      arm.elbow.rotation.x += (bend - arm.elbow.rotation.x) * Math.min(1, dt * 6);
+      arm.wrist.rotation.x = reach > 0.5 ? -0.3 : 0.15;
+      arm.fingers.forEach((f, i) => {
+        const curl = chase ? 0.55 + Math.sin(t * 11 + i * 0.7 + ph) * 0.5 : 0.25 + Math.sin(t * 2 + i) * 0.12 + (Math.random() < 0.01 ? 0.6 : 0);
+        f.base.rotation.x = curl * 0.8; f.knuckle.rotation.x = curl * 1.1;
+      });
+    }
+
+    // Augen glimmen stärker, wenn er jagt
+    for (const e of this.eyes) {
+      const target = chase ? 0.95 : 0.18;
+      e.material.opacity += (target - e.material.opacity) * Math.min(1, dt * 4);
+      e.scale.setScalar(chase ? 0.06 + Math.random() * 0.01 : 0.045);
+    }
+
+    // Nebelschleier
+    for (const m of this.mist) {
+      m.life += dt;
+      if (m.life > m.max) {
+        m.life = 0; m.max = rand(1.2, 2.2);
+        const a = rand(0, Math.PI * 2);
+        m.sp.position.set(Math.sin(a) * 0.35, rand(0.05, 0.4), Math.cos(a) * 0.35 - 0.1);
+        m.vx = rand(-0.1, 0.1); m.vz = -0.15 - drag; m.vy = rand(0.15, 0.35);
+      }
+      const k = m.life / m.max;
+      m.sp.position.x += (m.vx || 0) * dt; m.sp.position.y += (m.vy || 0.2) * dt; m.sp.position.z += (m.vz || -0.1) * dt;
+      m.sp.scale.setScalar(0.35 + k * 0.6);
+      m.sp.material.opacity = Math.sin(k * Math.PI) * (chase ? 0.22 : 0.14);
+    }
+
+    // Flackern/Zucken: Er „springt“ kurz, als würde das Bild aussetzen
+    this.nextGlitch -= dt;
+    if (this.nextGlitch <= 0) { this.glitchT = rand(0.04, chase ? 0.14 : 0.08); this.nextGlitch = chase ? rand(0.6, 1.8) : rand(3, 8); }
+    if (this.glitchT > 0) {
+      this.glitchT -= dt;
+      this.inner.visible = Math.random() < 0.35;
+      this.inner.position.set((Math.random() - 0.5) * 0.25, 0, (Math.random() - 0.5) * 0.25);
+    } else { this.inner.visible = true; this.inner.position.set(0, 0, 0); }
+    if (kill) { this.inner.visible = true; this.inner.position.set((Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.04, 0); }
   }
 }
 
@@ -283,7 +484,7 @@ export class Ghost {
 
     this.model.group.position.set(this.pos.x, 0, this.pos.z);
     this.model.group.rotation.y = this.heading;
-    this.model.animate(dt, this.state === 'chase' ? 1 : this.state === 'investigate' ? 0.3 : 0, this.speedNow);
+    this.model.animate(dt, this.state === 'chase' ? 1 : this.state === 'investigate' ? 0.3 : 0, this.speedNow, this.state);
     const voice = { chase: 0.9, investigate: 0.45, search: 0.5, wander: 0.3, repel: 0.15 }[this.state] || 0.3;
     this.g.audio.setGhost(this.pos, voice);
   }

@@ -1,9 +1,9 @@
-export const VERSION = '1.6.0';
+export const VERSION = '1.7.0';
 
 // Kurz und knackig: erscheint bei jedem Start im „Neu in dieser Version“-Fenster.
 export const WHATS_NEW = [
-  'Echte Horror-Sounds: Kreischen bei Jumpscares, Schrei des Mädchens',
-  'Du hörst den Geist atmen und knurren, wenn er nah ist',
-  'Flüsternde Stimmen in der Ferne',
-  'Neue Hintergrundmusik',
+  'Der Geist sieht komplett neu aus: zerfetztes Gewand, nasses Haar, knochige Finger',
+  'Er zuckt, sein Kopf knickt ruckartig ab, das Bild setzt kurz aus',
+  'Bei der Jagd: glimmende Augen, vorgereckter Kopf, krallende Hände',
+  'Nebelschleier steigt von ihm auf',
 ];
