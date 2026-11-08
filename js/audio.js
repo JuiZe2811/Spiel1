@@ -497,6 +497,12 @@ export class AudioEngine {
     this._noise({ dur: 2.5, freq: 300, freqEnd: 3000, q: 2, gain: 0.25 * k, attack: 1.2 });
   }
 
+  // Elektrisches Knistern der Isolatoren
+  zap(pos) {
+    for (let i = 0; i < 4; i++) this._noise({ dur: 0.03 + Math.random() * 0.04, type: 'highpass', freq: rand(2500, 5000), gain: 0.35, pos, when: i * rand(0.02, 0.06) });
+    this._tone({ freq: 100, type: 'sawtooth', dur: 0.15, gain: 0.08, pos });
+  }
+
   // ---------- Bengalos ----------
   flareIgnite() {
     this._noise({ dur: 0.5, type: 'highpass', freq: 2500, gain: 0.5, attack: 0.01 });

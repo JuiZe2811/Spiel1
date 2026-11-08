@@ -1,6 +1,6 @@
 # Die fünf Schlüssel
 
-**Version 1.7.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
+**Version 1.8.0 · made by Julian** — alle Änderungen stehen im Spiel unter *Patch Notes*.
 
 3D-Survival-Horror direkt im Browser – für Smartphone, Tablet und PC. Keine Installation, kein Plugin, kein Server-Backend.
 
@@ -56,7 +56,7 @@ Die Touch-Tasten liegen im Viertelkreis um den rechten Daumen: großer Sprint-Kn
 - **Fluchtphase:** Nach dem fünften Schlüssel wird der Ausgang entriegelt (Lampe an der Tür wird grün). Der Geist wird schneller und spürt regelmäßig, wo du ungefähr bist.
 - **Kruzifix:** 4 Sekunden Schutz, danach 20 Sekunden Abklingzeit. Ist der Geist in der Nähe, wird er zurückgedrängt und verliert deine Spur.
 - **Taschenlampe:** Ohne Batterie, flackert, wenn der echte Geist nahe ist. Eingeschaltet sieht der Geist dich aus größerer Entfernung.
-- **Der Geist:** gebeugte, ausgemergelte Gestalt mit zerfetztem Gewand (Saum läuft durchsichtig in Fetzen aus), langen nassen Haarsträhnen und überlangen, knochigen Armen mit einzelnen Fingern. Gewand, Fetzen und Haare bewegen sich ständig; der Kopf knickt ruckartig ab, die Gestalt flackert kurz wie ein Bildaussetzer, Nebel steigt auf. Bei der Jagd glimmen die Augen, der Kopf reckt sich vor und die Hände krallen. Sein Gesicht ist das Standard- oder dein hochgeladenes Gesicht.
+- **Der Geist:** kahler Kopf mit rissiger Maske, hohlen Augenhöhlen mit Metallringen und zugenähtem Mund; vier schwarze Isolatoren ragen aus dem Kopf, wirre Drähte schlingen sich um Kopf und Hals. Dürrer, blasser Oberkörper, zerrissenes dunkles Hemd, das unten durchsichtig in Fetzen ausläuft; überlange, knochige Arme mit einzelnen Fingern. Er knistert und sprüht Funken, der Kopf knickt ruckartig ab, die Gestalt flackert wie ein Bildaussetzer, Nebel steigt auf. Bei der Jagd glimmen die Augen, der Kopf reckt sich vor und die Hände krallen. Mit hochgeladenem Foto trägt er dein Gesicht – mit Metallringen über den Augen.
 - **Geist-KI:** Zustände *Umherwandern*, *Geräusch untersuchen*, *Verfolgen*, *Letzte Position absuchen*, *Zurückweichen*. Er sieht nur mit Sichtlinie (keine Sicht durch Wände, geschlossene Türen oder hohe Regale), hört Schritte (Rennen ist laut) und Türen, öffnet Türen auf seinem Weg und navigiert per A*-Wegfindung um Hindernisse.
 - **Harmlose Schreckmomente:** Etwa alle 10–26 Sekunden (zufällig, mit jedem Schlüssel häufiger, manchmal zwei direkt hintereinander). Der echte Geist jagt nur; die Schocks kommen von anderen Wesen und aus der Umgebung:
   - **Schattenmann** (2,7 m groß, weiß glühende Augen): lugt aus offenen Türen, geht durch Räume, steht nach einem Stromausfall vor dir

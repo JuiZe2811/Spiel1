@@ -19,49 +19,53 @@ function ovalMask(ctx, size, soft = 0.22) {
   ctx.putImageData(img, 0, 0);
 }
 
+// Standardgesicht: rissige, schmutzige Maske mit hohlen Augen und zugenähtem Mund.
+// Augen/Mund liegen dort, wo am 3D-Kopf die Metallringe sitzen.
 function drawDefaultFace(ctx) {
-  const s = SIZE;
+  const s = SIZE, eyes = [[162, 238], [350, 238]], mouthY = 404;
   ctx.clearRect(0, 0, s, s);
-  const skin = ctx.createRadialGradient(s / 2, s * 0.42, s * 0.05, s / 2, s / 2, s * 0.55);
-  skin.addColorStop(0, '#d9dfdf'); skin.addColorStop(0.6, '#9aa5a7'); skin.addColorStop(1, '#3b4446');
-  ctx.fillStyle = skin;
-  ctx.beginPath(); ctx.ellipse(s / 2, s / 2, s * 0.42, s * 0.5, 0, 0, Math.PI * 2); ctx.fill();
-  // Wangenschatten
-  for (const sx of [-1, 1]) {
-    const g = ctx.createRadialGradient(s / 2 + sx * s * 0.22, s * 0.62, 5, s / 2 + sx * s * 0.22, s * 0.62, s * 0.16);
-    g.addColorStop(0, 'rgba(30,40,45,0.55)'); g.addColorStop(1, 'rgba(30,40,45,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+  const base = ctx.createRadialGradient(s / 2, s * 0.42, 30, s / 2, s / 2, s * 0.6);
+  base.addColorStop(0, '#d8d3c8'); base.addColorStop(0.55, '#a9a398'); base.addColorStop(1, '#3a3732');
+  ctx.fillStyle = base; ctx.fillRect(0, 0, s, s);
+  // Schmutz und eingefallene Wangen
+  const smudge = (x, y, r, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(20,18,15,${a})`); g.addColorStop(1, 'rgba(20,18,15,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); };
+  for (let i = 0; i < 26; i++) smudge(Math.random() * s, Math.random() * s, 15 + Math.random() * 50, 0.15 + Math.random() * 0.25);
+  smudge(140, 340, 70, 0.45); smudge(372, 340, 70, 0.45);
+  // Augenhöhlen: dunkle Ränder, schwarzes Loch
+  for (const [x, y] of eyes) {
+    smudge(x, y, 95, 0.75);
+    ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.arc(x, y, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 4;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + (Math.random() - 0.5) * 30, y + 44); ctx.lineTo(x + (Math.random() - 0.5) * 40, y + 90 + Math.random() * 50); ctx.stroke(); }
   }
-  // Augenhöhlen
-  for (const sx of [-1, 1]) {
-    const ex = s / 2 + sx * s * 0.15, ey = s * 0.42;
-    const g = ctx.createRadialGradient(ex, ey, 2, ex, ey, s * 0.13);
-    g.addColorStop(0, '#000'); g.addColorStop(0.55, 'rgba(0,0,0,0.95)'); g.addColorStop(1, 'rgba(10,15,20,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.ellipse(ex, ey, s * 0.13, s * 0.1, sx * 0.15, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(235,245,240,0.95)';
-    ctx.beginPath(); ctx.arc(ex + sx * 4, ey + 6, 5, 0, Math.PI * 2); ctx.fill();
+  // Nase: zwei eingesunkene Löcher
+  ctx.fillStyle = 'rgba(10,8,6,0.85)';
+  ctx.beginPath(); ctx.ellipse(242, 318, 8, 12, 0.2, 0, Math.PI * 2); ctx.ellipse(270, 318, 8, 12, -0.2, 0, Math.PI * 2); ctx.fill();
+  // Zugenähter Mund: dunkler Spalt, Stiche wie Zähne
+  smudge(256, mouthY, 90, 0.5);
+  ctx.fillStyle = '#0a0705';
+  ctx.beginPath(); ctx.moveTo(170, mouthY); ctx.quadraticCurveTo(256, mouthY - 22, 342, mouthY); ctx.quadraticCurveTo(256, mouthY + 26, 170, mouthY); ctx.fill();
+  ctx.fillStyle = '#d9d2c2';
+  for (let i = 0; i < 13; i++) {
+    const x = 182 + i * 12.5, k = Math.sin((i / 12) * Math.PI);
+    ctx.fillRect(x, mouthY - 12 - k * 6, 5, 14 + k * 4);          // obere Stiche
+    ctx.fillRect(x + 3, mouthY - 1, 5, 13 + k * 5);              // untere Stiche
   }
-  // Nase
-  ctx.fillStyle = 'rgba(20,25,28,0.7)';
-  ctx.beginPath(); ctx.ellipse(s / 2 - 10, s * 0.6, 7, 4, 0, 0, Math.PI * 2); ctx.ellipse(s / 2 + 10, s * 0.6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
-  // Aufgerissener Mund
-  const m = ctx.createRadialGradient(s / 2, s * 0.77, 4, s / 2, s * 0.77, s * 0.13);
-  m.addColorStop(0, '#000'); m.addColorStop(0.7, '#0a0303'); m.addColorStop(1, 'rgba(40,10,10,0)');
-  ctx.fillStyle = m;
-  ctx.beginPath(); ctx.ellipse(s / 2, s * 0.77, s * 0.08, s * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-  // Risse und Adern
-  ctx.strokeStyle = 'rgba(25,30,40,0.55)'; ctx.lineWidth = 2;
-  for (let i = 0; i < 9; i++) {
-    let x = s / 2 + (Math.random() - 0.5) * s * 0.6, y = s * (0.15 + Math.random() * 0.7);
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(176, mouthY); ctx.lineTo(336, mouthY); ctx.stroke();
+  // Risse quer über die Maske
+  ctx.strokeStyle = 'rgba(20,16,12,0.6)';
+  for (let i = 0; i < 22; i++) {
+    let x = Math.random() * s, y = Math.random() * s; ctx.lineWidth = 0.8 + Math.random() * 1.5;
     ctx.beginPath(); ctx.moveTo(x, y);
-    for (let j = 0; j < 5; j++) { x += (Math.random() - 0.5) * 40; y += (Math.random() - 0.3) * 30; ctx.lineTo(x, y); }
+    for (let j = 0; j < 6; j++) { x += (Math.random() - 0.5) * 45; y += (Math.random() - 0.5) * 45; ctx.lineTo(x, y); }
     ctx.stroke();
   }
-  // Tränen aus den Augen
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  for (const sx of [-1, 1]) ctx.fillRect(s / 2 + sx * s * 0.15 - 3, s * 0.47, 6, s * 0.18 + Math.random() * 30);
-  ovalMask(ctx, s, 0.18);
+  // Körnung, Schwarz-Weiß
+  const img = ctx.getImageData(0, 0, s, s), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const v = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11 + (Math.random() - 0.5) * 28; d[i] = d[i + 1] = d[i + 2] = v; }
+  ctx.putImageData(img, 0, 0);
+  ovalMask(ctx, s, 0.12);
 }
 
 // Wandelt ein zugeschnittenes Foto in ein bleiches Geistergesicht um.

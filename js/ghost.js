@@ -55,11 +55,34 @@ function hairAlpha() {
   return new THREE.CanvasTexture(c);
 }
 
+function crackedSkin() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#cfcac0'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 22; i++) {
+    const px = Math.random() * 256, py = Math.random() * 256, r = 10 + Math.random() * 40;
+    const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(30,28,25,0.35)'); g.addColorStop(1, 'rgba(30,28,25,0)');
+    x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2);
+  }
+  x.strokeStyle = 'rgba(20,18,16,0.55)';
+  for (let i = 0; i < 40; i++) {
+    let px = Math.random() * 256, py = Math.random() * 256; x.lineWidth = 0.6 + Math.random();
+    x.beginPath(); x.moveTo(px, py);
+    for (let j = 0; j < 5; j++) { px += (Math.random() - 0.5) * 26; py += (Math.random() - 0.5) * 26; x.lineTo(px, py); }
+    x.stroke();
+  }
+  const img = x.getImageData(0, 0, 256, 256), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * 30; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 let GEO = null;
 function geometries() {
   if (GEO) return GEO;
   // Gebeugte, ausgemergelte Silhouette
-  const profile = [[0.5, 0], [0.45, 0.25], [0.37, 0.62], [0.29, 1.0], [0.25, 1.25], [0.24, 1.42], [0.19, 1.56], [0.1, 1.63], [0.03, 1.66]]
+  const profile = [[0.5, 0], [0.44, 0.25], [0.35, 0.62], [0.27, 1.0], [0.22, 1.2], [0.205, 1.36], [0.19, 1.43]]
     .map(([r, y]) => new THREE.Vector2(r, y));
   const robe = new THREE.LatheGeometry(profile, 20);
   const head = new THREE.SphereGeometry(0.15, 18, 14);
@@ -72,19 +95,31 @@ function geometries() {
   const palm = new THREE.BoxGeometry(0.06, 0.08, 0.02); palm.translate(0, -0.04, 0);
   const finger = new THREE.CapsuleGeometry(0.0075, 0.07, 2, 4); finger.translate(0, -0.045, 0);
   const neck = new THREE.CylinderGeometry(0.035, 0.05, 0.22, 8); neck.translate(0, 0.11, 0);
-  GEO = { robe, head, face, hair, strand, rag, upper, fore, palm, finger, neck };
+  const torso = new THREE.CapsuleGeometry(0.14, 0.18, 4, 12); torso.scale(1.0, 1, 0.62);
+  const ring = new THREE.TorusGeometry(0.032, 0.009, 8, 18);
+  const lens = new THREE.CircleGeometry(0.026, 18);
+  // Isolator: gerippte Spule aus Bakelit
+  const ins = [];
+  const addCyl = (r1, r2, h, y) => { const c = new THREE.CylinderGeometry(r1, r2, h, 12); c.translate(0, y, 0); ins.push(c); };
+  addCyl(0.034, 0.038, 0.02, 0.01); addCyl(0.024, 0.024, 0.03, 0.035); addCyl(0.033, 0.033, 0.012, 0.056);
+  addCyl(0.022, 0.022, 0.025, 0.074); addCyl(0.03, 0.03, 0.012, 0.092); addCyl(0.018, 0.012, 0.03, 0.112);
+  GEO = { robe, head, face, hair, strand, rag, upper, fore, palm, finger, neck, torso, ring, lens, ins };
   return GEO;
 }
 
 export function createGhostMaterials(faceTex, glowTex) {
   const alpha = tatterAlpha();
   return {
-    robe: new THREE.MeshLambertMaterial({ map: clothMap(), color: 0x8f99a0, emissive: 0x111820, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
-    rag: new THREE.MeshLambertMaterial({ color: 0x838c93, emissive: 0x0e1419, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
+    robe: new THREE.MeshLambertMaterial({ map: clothMap(), color: 0x3d3d3d, emissive: 0x090909, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
+    rag: new THREE.MeshLambertMaterial({ color: 0x343434, emissive: 0x070707, alphaMap: alpha, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide }),
+    wire: new THREE.MeshLambertMaterial({ color: 0x0c0c0c }),
+    bakelite: new THREE.MeshPhongMaterial({ color: 0x101010, specular: 0x2a2a2a, shininess: 40 }),
+    metal: new THREE.MeshPhongMaterial({ color: 0x6c6c6c, specular: 0xbbbbbb, shininess: 90 }),
+    socket: new THREE.MeshBasicMaterial({ color: 0x020202 }),
     strand: new THREE.MeshLambertMaterial({ color: 0x050505, alphaMap: hairAlpha(), alphaTest: 0.35, side: THREE.DoubleSide }),
-    skin: new THREE.MeshLambertMaterial({ color: 0x9da6aa, emissive: 0x161e24 }),
+    skin: new THREE.MeshLambertMaterial({ map: crackedSkin(), color: 0x9f9b93, emissive: 0x121110 }),
     hair: new THREE.MeshLambertMaterial({ color: 0x040404, side: THREE.DoubleSide }),
-    face: new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, color: 0xc4ccd0 }),
+    face: new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, color: 0xb4b0a8 }),
     shadow: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
     glow: glowTex || null,
   };
@@ -126,25 +161,56 @@ export class GhostModel {
     this.head.scale.set(1.25, 1.4, 1.25);
     this.head.add(new THREE.Mesh(G.head, m('skin')));
     if (!shadow) { this.faceMesh = new THREE.Mesh(G.face, mats.face); this.head.add(this.faceMesh); }
-    this.head.add(new THREE.Mesh(G.hair, m('hair')));
-    // Langes, nasses Haar – einige Strähnen hängen vor dem Gesicht
     this.strands = [];
-    for (let i = 0; i < 18; i++) {
-      const front = i >= 16;
-      const a = front ? Math.PI / 2 + (i === 16 ? -0.62 : 0.62) : -0.35 + (i / 15) * (Math.PI + 0.7);
-      const s = new THREE.Mesh(G.strand, m('strand'));
-      const r = front ? 0.15 : 0.16;
-      s.position.set(Math.cos(a) * r, front ? 0.12 : 0.06, front ? Math.sin(a) * r : -Math.sin(a) * r);
-      s.rotation.y = front ? 0 : a + Math.PI / 2;
-      s.scale.set(front ? 0.8 : 1.2, front ? rand(0.7, 0.85) : rand(0.75, 1.2), 1);
-      this.head.add(s); this.strands.push({ mesh: s, phase: rand(0, 6), front });
+    // Dürrer, blasser Oberkörper mit Trägern des zerrissenen Hemds
+    const torso = new THREE.Mesh(G.torso, m('skin')); torso.position.set(0, 1.47, 0.0); this.body.add(torso);
+    for (const sx of [-1, 1]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.3, 0.012), m('robe'));
+      strap.position.set(sx * 0.1, 1.5, 0.115); strap.rotation.x = -0.25; this.body.add(strap);
+      const back = strap.clone(); back.position.z = -0.115; back.rotation.x = 0.25; this.body.add(back);
+    }
+    // Augen: links ein Metallring mit Linse, rechts eine hohle Höhle mit Ring
+    for (const sx of [-1, 1]) {
+      const ring = new THREE.Mesh(G.ring, m('metal')); ring.position.set(sx * 0.052, 0.025, 0.148); this.head.add(ring);
+      if (sx < 0) {
+        const inner = new THREE.Mesh(G.ring, m('metal')); inner.scale.setScalar(0.55); inner.position.set(sx * 0.052, 0.025, 0.152); this.head.add(inner);
+        const lens = new THREE.Mesh(G.lens, m('bakelite')); lens.position.set(sx * 0.052, 0.025, 0.146); this.head.add(lens);
+      } else {
+        const hole = new THREE.Mesh(G.lens, m('socket')); hole.position.set(sx * 0.052, 0.025, 0.145); this.head.add(hole);
+      }
+    }
+    // Isolatoren seitlich am Kopf (wie Elektroden)
+    this.sparkPoints = [];
+    for (const [x, y, z, rz, ry] of [[-0.12, 0.09, 0.0, 1.0, 0.2], [-0.14, -0.02, 0.03, 1.45, 0.1], [0.12, 0.09, 0.0, -1.0, -0.2], [0.14, -0.02, 0.03, -1.45, -0.1]]) {
+      const grp = new THREE.Group(); grp.position.set(x, y, z); grp.rotation.set(0, ry, rz);
+      for (const g of G.ins) grp.add(new THREE.Mesh(g, m('bakelite')));
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.05, 6), m('metal')); tip.position.y = 0.14; grp.add(tip);
+      this.head.add(grp);
+      const sp = new THREE.Object3D(); sp.position.y = 0.17; grp.add(sp); this.sparkPoints.push(sp);
+    }
+    // Wirre Drähte um Kopf und Hals
+    const wm = m('wire');
+    for (let w = 0; w < 9; w++) {
+      const pts = [];
+      const start = this.sparkPoints[w % 4].parent.position.clone();
+      pts.push(start);
+      const n = 5 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = 0.14 + Math.random() * 0.11;
+        const down = w > 5 && i > n - 3;
+        pts.push(new THREE.Vector3(Math.cos(a) * r, down ? -0.22 - Math.random() * 0.2 : (Math.random() - 0.4) * 0.32, Math.sin(a) * r * 0.85));
+      }
+      if (w < 4) pts.push(new THREE.Vector3((Math.random() - 0.5) * 0.45, 0.28 + Math.random() * 0.12, (Math.random() - 0.5) * 0.15)); // abstehend
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.0032, 4, false), wm);
+      this.head.add(tube);
     }
     // Glimmende Augenpunkte (vor allem bei der Jagd)
     this.eyes = [];
     if (!shadow && mats.glow) {
       for (const sx of [-1, 1]) {
         const e = new THREE.Sprite(new THREE.SpriteMaterial({ map: mats.glow, color: 0xd8f4ff, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
-        e.position.set(sx * 0.052, 0.025, 0.155); e.scale.set(0.05, 0.05, 1);
+        e.position.set(sx * 0.052, 0.025, 0.156); e.scale.set(0.05, 0.05, 1);
         this.head.add(e); this.eyes.push(e);
       }
     }
@@ -180,6 +246,14 @@ export class GhostModel {
       }
     }
 
+    this.sparks = [];
+    if (!shadow && mats.glow) {
+      for (const p of this.sparkPoints) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: mats.glow, color: 0xd6ecff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        p.add(sp); this.sparks.push({ sp, t: 0 });
+      }
+    }
+    this.sparkT = rand(1, 3); this.sparked = false;
     this.t = Math.random() * 10;
     this.twitchT = 0; this.headTarget = { x: 0, y: 0, z: 0.25 };
     this.glitchT = 0; this.nextGlitch = rand(1, 3);
@@ -273,6 +347,18 @@ export class GhostModel {
       m.sp.position.x += (m.vx || 0) * dt; m.sp.position.y += (m.vy || 0.2) * dt; m.sp.position.z += (m.vz || -0.1) * dt;
       m.sp.scale.setScalar(0.35 + k * 0.6);
       m.sp.material.opacity = Math.sin(k * Math.PI) * (chase ? 0.22 : 0.14);
+    }
+
+    // Elektrische Funken an den Isolatoren
+    this.sparkT -= dt;
+    if (this.sparkT <= 0 && this.sparks.length) {
+      this.sparkT = chase ? rand(0.3, 1.2) : rand(2, 6);
+      const s = this.sparks[Math.floor(Math.random() * this.sparks.length)];
+      s.t = rand(0.08, 0.2); this.sparked = true;
+    }
+    for (const s of this.sparks) {
+      if (s.t > 0) { s.t -= dt; s.sp.material.opacity = Math.random() < 0.7 ? 1 : 0.2; s.sp.scale.setScalar(rand(0.08, 0.18)); }
+      else s.sp.material.opacity = 0;
     }
 
     // Flackern/Zucken: Er „springt“ kurz, als würde das Bild aussetzen
@@ -485,6 +571,7 @@ export class Ghost {
     this.model.group.position.set(this.pos.x, 0, this.pos.z);
     this.model.group.rotation.y = this.heading;
     this.model.animate(dt, this.state === 'chase' ? 1 : this.state === 'investigate' ? 0.3 : 0, this.speedNow, this.state);
+    if (this.model.sparked) { this.model.sparked = false; this.g.audio.zap({ x: this.pos.x, y: 1.9, z: this.pos.z }); }
     const voice = { chase: 0.9, investigate: 0.45, search: 0.5, wander: 0.3, repel: 0.15 }[this.state] || 0.3;
     this.g.audio.setGhost(this.pos, voice);
   }
